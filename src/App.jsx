@@ -763,6 +763,11 @@ export default function App() {
     if (!session || !data) return;
     syncOnLoad(data, session.user.id).then(synced => {
       if (synced && JSON.stringify(synced) !== JSON.stringify(data)) {
+        // Preserve local planning data if remote doesn't have it
+        if (!synced.planning && data.planning && Object.keys(data.planning).length > 0) {
+          synced.planning = data.planning;
+          storage.set(STORAGE_KEY, synced);
+        }
         setData(synced);
       }
     });
@@ -1027,6 +1032,7 @@ export default function App() {
         .tb.active{color:#e94560;background:rgba(233,69,96,.12)}
         .na{width:40px;height:40px;border-radius:12px;border:1px solid #2a2a4a;background:#0d0d24;color:white;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:16px;transition:all .15s;-webkit-tap-highlight-color:transparent}
         .na:active{transform:scale(.95);border-color:#e94560}
+        .plan-cell{cursor:pointer;transition:background .12s}.plan-cell:hover{background:rgba(233,69,96,.07)!important}
         input[type=number],input[type=text]{background:#0d0d24;border:1px solid #2a2a4a;border-radius:10px;color:white;padding:10px 12px;font-family:'Space Mono';font-size:14px;width:80px;text-align:center;outline:none;-webkit-appearance:none}
         input:focus,textarea:focus{border-color:#e94560!important}
         textarea{-webkit-appearance:none;font-family:'Outfit',sans-serif}
@@ -1319,15 +1325,10 @@ export default function App() {
                       ))}
                       {weekDates.map((dateStr, colIdx) => (
                         <div key={dateStr} style={{ gridColumn: colIdx + 2, gridRow: "1 / -1", position: "relative",
-                          borderLeft: "1px solid #1a1a2e", background: dateStr === today ? "rgba(76,175,80,.03)" : "transparent", cursor: "pointer" }}
-                          onClick={(e) => {
-                            const rect = e.currentTarget.getBoundingClientRect();
-                            const y = e.clientY - rect.top + e.currentTarget.scrollTop;
-                            const hour = Math.floor(y / HOUR_HEIGHT) + 6;
-                            if (hour >= 6 && hour <= 23) openNewEvent(dateStr, hour);
-                          }}>
+                          borderLeft: "1px solid #1a1a2e", background: dateStr === today ? "rgba(76,175,80,.03)" : "transparent" }}>
                           {PLANNING_HOURS.map(h => (
-                            <div key={h} style={{ height: HOUR_HEIGHT, borderTop: "1px solid #111" }} />
+                            <div key={h} className="plan-cell" onClick={() => openNewEvent(dateStr, h)}
+                              style={{ height: HOUR_HEIGHT, borderTop: "1px solid #111" }} />
                           ))}
                           {getEventsForDate(data.planning, dateStr).map(evt => renderEventBlock(evt, true))}
                         </div>
@@ -1364,15 +1365,9 @@ export default function App() {
                     </div>
                     <button className="na" style={{ width: 32, height: 32 }} onClick={() => { const d = new Date(selectedDate); d.setDate(d.getDate() + 1); setSelectedDate(d.toISOString().split("T")[0]); }}>→</button>
                   </div>
-                  <div style={{ position: "relative", overflowY: "auto", maxHeight: "65vh", cursor: "pointer" }}
-                    onClick={(e) => {
-                      const rect = e.currentTarget.getBoundingClientRect();
-                      const y = e.clientY - rect.top + e.currentTarget.scrollTop;
-                      const hour = Math.floor(y / HOUR_HEIGHT) + 6;
-                      if (hour >= 6 && hour <= 23) openNewEvent(selectedDate, hour);
-                    }}>
+                  <div style={{ position: "relative", overflowY: "auto", maxHeight: "65vh" }}>
                     {PLANNING_HOURS.map(h => (
-                      <div key={h}
+                      <div key={h} className="plan-cell" onClick={() => openNewEvent(selectedDate, h)}
                         style={{ display: "flex", height: HOUR_HEIGHT, borderTop: "1px solid #111" }}>
                         <div style={{ width: 44, display: "flex", alignItems: "flex-start", justifyContent: "center", paddingTop: 4,
                           fontSize: 10, color: "#444", fontFamily: "'Space Mono'" }}>{h}:00</div>
