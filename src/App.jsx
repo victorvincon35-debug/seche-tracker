@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis, AreaChart, Area } from "recharts";
 import { supabase, storage, syncOnLoad, debouncedPush } from "./supabase.js";
 
@@ -70,6 +70,175 @@ const SUPPS = [
   { id: "s_zinc", label: "Zinc 20mg", emoji: "🔩" },
   { id: "s_vite", label: "Vit E 300 UI", emoji: "🌿" },
   { id: "s_calcium", label: "Calcium 1000mg", emoji: "🦷" },
+];
+
+const ABS_CIRCUIT = [
+  { id: "abs_deadbug", label: "Dead bug", emoji: "🪲" },
+  { id: "abs_hollow", label: "Hollow body", emoji: "🫃" },
+  { id: "abs_planche", label: "Planche", emoji: "🧱" },
+  { id: "abs_birddog", label: "Bird dog", emoji: "🐕" },
+  { id: "abs_pallof", label: "Pallof press", emoji: "🔄" },
+];
+
+const SPORT_DAYS = {
+  1: {
+    id: "push", type: "muscu", label: "PUSH", subtitle: "Pecs, Épaules, Triceps", emoji: "🏋️", hasAbsCircuit: true,
+    exercises: [
+      { id: "push_ss1a", label: "Dips Tempo", emoji: "⬇️", series: 5, reps: "15", rest: 90, superset: "push_ss1b", tempo: "1s montée 4s descente" },
+      { id: "push_ss1b", label: "Pompes Tempo", emoji: "💪", series: 5, reps: "20", rest: 90, tempo: "1s montée 4s descente" },
+      { id: "push_ss2a", label: "Dips Épaules", emoji: "⬆️", series: 5, reps: "15", rest: 90, superset: "push_ss2b" },
+      { id: "push_ss2b", label: "Développé épaules élastique", emoji: "🔴", series: 5, reps: "15", rest: 90 },
+      { id: "push_ss3a", label: "Tractions explosives / Négatifs muscle up", emoji: "🚀", series: 5, reps: "5-8", rest: 90, superset: "push_ss3b" },
+      { id: "push_ss3b", label: "Dips", emoji: "⬇️", series: 5, reps: "15", rest: 90, superset: "push_ss3c" },
+      { id: "push_ss3c", label: "Extension triceps élastique", emoji: "🔴", series: 5, reps: "15", rest: 90 },
+      { id: "push_ss4a", label: "Pompes diamant", emoji: "💎", series: 5, reps: "15", rest: 90, superset: "push_ss4b" },
+      { id: "push_ss4b", label: "Élévations latérales élastique", emoji: "🔴", series: 5, reps: "15", rest: 90 },
+    ],
+  },
+  2: {
+    id: "nat_hiit", type: "natation", label: "NATATION HIIT", subtitle: "Sprints & intensité", emoji: "🏊",
+    blocks: [
+      { id: "warmup_brasse", label: "Échauffement — 100m brasse tranquille", distance: 100, emoji: "🐢" },
+      { id: "warmup_crawl", label: "Échauffement — 100m crawl tranquille", distance: 100, emoji: "🐢" },
+      { id: "b1_1", label: "50m crawl sprint (85-90%) — 30s récup", distance: 50, emoji: "⚡" },
+      { id: "b1_2", label: "50m crawl sprint — 30s récup", distance: 50, emoji: "⚡" },
+      { id: "b1_3", label: "50m crawl sprint — 30s récup", distance: 50, emoji: "⚡" },
+      { id: "b1_4", label: "50m crawl sprint — 30s récup", distance: 50, emoji: "⚡" },
+      { id: "b1_5", label: "50m crawl sprint — 30s récup", distance: 50, emoji: "⚡" },
+      { id: "b1_6", label: "50m crawl sprint — 30s récup", distance: 50, emoji: "⚡" },
+      { id: "b1_7", label: "50m crawl sprint — 30s récup", distance: 50, emoji: "⚡" },
+      { id: "b1_8", label: "50m crawl sprint — 30s récup", distance: 50, emoji: "⚡" },
+      { id: "b1_9", label: "50m crawl sprint — 30s récup", distance: 50, emoji: "⚡" },
+      { id: "b1_10", label: "50m crawl sprint — 30s récup", distance: 50, emoji: "⚡" },
+      { id: "b2_1", label: "50m brasse rapide — 20s récup", distance: 50, emoji: "🐸" },
+      { id: "b2_2", label: "50m brasse rapide — 20s récup", distance: 50, emoji: "🐸" },
+      { id: "b2_3", label: "50m brasse rapide — 20s récup", distance: 50, emoji: "🐸" },
+      { id: "b2_4", label: "50m brasse rapide — 20s récup", distance: 50, emoji: "🐸" },
+      { id: "b2_5", label: "50m brasse rapide — 20s récup", distance: 50, emoji: "🐸" },
+      { id: "b2_6", label: "50m brasse rapide — 20s récup", distance: 50, emoji: "🐸" },
+      { id: "b2_7", label: "50m brasse rapide — 20s récup", distance: 50, emoji: "🐸" },
+      { id: "b2_8", label: "50m brasse rapide — 20s récup", distance: 50, emoji: "🐸" },
+      { id: "b3_1", label: "50m crawl sprint MAX (95%) — 40s récup", distance: 50, emoji: "🔥" },
+      { id: "b3_2", label: "50m crawl sprint MAX — 40s récup", distance: 50, emoji: "🔥" },
+      { id: "b3_3", label: "50m crawl sprint MAX — 40s récup", distance: 50, emoji: "🔥" },
+      { id: "b3_4", label: "50m crawl sprint MAX — 40s récup", distance: 50, emoji: "🔥" },
+      { id: "b3_5", label: "50m crawl sprint MAX — 40s récup", distance: 50, emoji: "🔥" },
+      { id: "b3_6", label: "50m crawl sprint MAX — 40s récup", distance: 50, emoji: "🔥" },
+      { id: "b4_1", label: "25m papillon (ou crawl sprint) — 30s récup", distance: 25, emoji: "🦋" },
+      { id: "b4_2", label: "25m papillon — 30s récup", distance: 25, emoji: "🦋" },
+      { id: "b4_3", label: "25m papillon — 30s récup", distance: 25, emoji: "🦋" },
+      { id: "b4_4", label: "25m papillon — 30s récup", distance: 25, emoji: "🦋" },
+      { id: "cooldown", label: "Retour au calme — 200m brasse souple", distance: 200, emoji: "🐢" },
+    ],
+    totalDistance: 1600,
+    info: "55 min — ~500-600 kcal — Crawl, brasse, papillon",
+  },
+  3: {
+    id: "pull", type: "muscu", label: "PULL", subtitle: "Dos, Biceps", emoji: "🏋️", hasAbsCircuit: true,
+    exercises: [
+      { id: "pull_ex1", label: "Tractions supination Tempo", emoji: "💪", series: 5, reps: "15", rest: 90, tempo: "1s montée 4s descente" },
+      { id: "pull_ss2a", label: "Tractions pronation larges", emoji: "↔️", series: 5, reps: "15", rest: 90, superset: "pull_ss2b" },
+      { id: "pull_ss2b", label: "Curl biceps élastique", emoji: "🔴", series: 5, reps: "15", rest: 90 },
+      { id: "pull_ss3a", label: "Australiennes", emoji: "🇦🇺", series: 5, reps: "15-20", rest: 90, superset: "pull_ss3b" },
+      { id: "pull_ss3b", label: "Curl marteau élastique", emoji: "🔴", series: 5, reps: "15", rest: 90 },
+      { id: "pull_ss4a", label: "Tractions neutres", emoji: "✊", series: 4, reps: "max", rest: 90, superset: "pull_ss4b" },
+      { id: "pull_ss4b", label: "Face pull élastique", emoji: "🔴", series: 4, reps: "20", rest: 90 },
+    ],
+  },
+  4: {
+    id: "nat_volume", type: "natation", label: "NATATION Volume", subtitle: "Endurance & distance", emoji: "🏊",
+    blocks: [
+      { id: "warmup", label: "Échauffement — 200m brasse tranquille", distance: 200, emoji: "🐢" },
+      { id: "v1_1", label: "50m crawl allure modérée — 15s récup", distance: 50, emoji: "🌊" },
+      { id: "v1_2", label: "50m crawl modéré — 15s récup", distance: 50, emoji: "🌊" },
+      { id: "v1_3", label: "50m crawl modéré — 15s récup", distance: 50, emoji: "🌊" },
+      { id: "v1_4", label: "50m crawl modéré — 15s récup", distance: 50, emoji: "🌊" },
+      { id: "v1_5", label: "50m crawl modéré — 15s récup", distance: 50, emoji: "🌊" },
+      { id: "v1_6", label: "50m crawl modéré — 15s récup", distance: 50, emoji: "🌊" },
+      { id: "v1_7", label: "50m crawl modéré — 15s récup", distance: 50, emoji: "🌊" },
+      { id: "v1_8", label: "50m crawl modéré — 15s récup", distance: 50, emoji: "🌊" },
+      { id: "v2_1", label: "50m brasse allure modérée — 15s récup", distance: 50, emoji: "🐸" },
+      { id: "v2_2", label: "50m brasse modérée — 15s récup", distance: 50, emoji: "🐸" },
+      { id: "v2_3", label: "50m brasse modérée — 15s récup", distance: 50, emoji: "🐸" },
+      { id: "v2_4", label: "50m brasse modérée — 15s récup", distance: 50, emoji: "🐸" },
+      { id: "v2_5", label: "50m brasse modérée — 15s récup", distance: 50, emoji: "🐸" },
+      { id: "v2_6", label: "50m brasse modérée — 15s récup", distance: 50, emoji: "🐸" },
+      { id: "v2_7", label: "50m brasse modérée — 15s récup", distance: 50, emoji: "🐸" },
+      { id: "v2_8", label: "50m brasse modérée — 15s récup", distance: 50, emoji: "🐸" },
+      { id: "v3_1", label: "50m alternée crawl/brasse — 15s récup", distance: 50, emoji: "🔄" },
+      { id: "v3_2", label: "50m alternée — 15s récup", distance: 50, emoji: "🔄" },
+      { id: "v3_3", label: "50m alternée — 15s récup", distance: 50, emoji: "🔄" },
+      { id: "v3_4", label: "50m alternée — 15s récup", distance: 50, emoji: "🔄" },
+      { id: "v3_5", label: "50m alternée — 15s récup", distance: 50, emoji: "🔄" },
+      { id: "v3_6", label: "50m alternée — 15s récup", distance: 50, emoji: "🔄" },
+      { id: "v3_7", label: "50m alternée — 15s récup", distance: 50, emoji: "🔄" },
+      { id: "v3_8", label: "50m alternée — 15s récup", distance: 50, emoji: "🔄" },
+      { id: "cooldown", label: "Retour au calme — 200m brasse souple", distance: 200, emoji: "🐢" },
+    ],
+    totalDistance: 1600,
+    info: "55 min — ~450-550 kcal — Crawl & brasse allure modérée",
+  },
+  5: {
+    id: "superset", type: "muscu", label: "SUPER SET", subtitle: "Push + Pull combiné", emoji: "🏋️",
+    exercises: [
+      { id: "ss_ss1a", label: "Dips", emoji: "⬇️", series: 5, reps: "15", rest: 90, superset: "ss_ss1b" },
+      { id: "ss_ss1b", label: "Tractions supination", emoji: "💪", series: 5, reps: "15", rest: 90 },
+      { id: "ss_ss2a", label: "Pompes", emoji: "🫸", series: 5, reps: "20", rest: 90, superset: "ss_ss2b" },
+      { id: "ss_ss2b", label: "Australiennes", emoji: "🇦🇺", series: 5, reps: "20", rest: 90 },
+      { id: "ss_ss3a", label: "Dips épaules", emoji: "⬆️", series: 5, reps: "15", rest: 90, superset: "ss_ss3b" },
+      { id: "ss_ss3b", label: "Tractions pronation", emoji: "↔️", series: 5, reps: "15", rest: 90 },
+      { id: "ss_ss4a", label: "Pompes diamant", emoji: "💎", series: 5, reps: "15", rest: 90, superset: "ss_ss4b" },
+      { id: "ss_ss4b", label: "Curl élastique", emoji: "🔴", series: 5, reps: "15", rest: 90 },
+    ],
+  },
+  6: {
+    id: "jambes", type: "muscu", label: "JAMBES", subtitle: "Quadriceps, Ischio, Mollets", emoji: "🦵", hasAbsCircuit: true,
+    exercises: [
+      { id: "jam_ex1", label: "Squat bulgare", emoji: "🦵", series: 5, reps: "15/jambe", rest: 90 },
+      { id: "jam_ex2", label: "Fentes sautées", emoji: "🦘", series: 5, reps: "20 total", rest: 90 },
+      { id: "jam_ex3", label: "Pistol squat (assisté si besoin)", emoji: "🔫", series: 4, reps: "8-10/jambe", rest: 90 },
+      { id: "jam_ex4", label: "Hip thrust", emoji: "🍑", series: 4, reps: "20", rest: 60 },
+      { id: "jam_ex5", label: "Mollets élévations", emoji: "⬆️", series: 4, reps: "25", rest: 60 },
+    ],
+  },
+  0: {
+    id: "nat_pyramide", type: "natation", label: "NATATION Pyramide", subtitle: "Montée/descente", emoji: "🏊",
+    blocks: [
+      { id: "warmup", label: "Échauffement — 200m (brasse + crawl)", distance: 200, emoji: "🐢" },
+      { id: "pyr_s1_25a", label: "25m crawl sprint — 15s récup", distance: 25, emoji: "📈" },
+      { id: "pyr_s1_50a", label: "50m crawl sprint — 20s récup", distance: 50, emoji: "📈" },
+      { id: "pyr_s1_50b", label: "50m brasse rapide — 20s récup", distance: 50, emoji: "🐸" },
+      { id: "pyr_s1_50c", label: "50m crawl sprint — 20s récup", distance: 50, emoji: "📉" },
+      { id: "pyr_s1_25b", label: "25m crawl sprint", distance: 25, emoji: "📉" },
+      { id: "pyr_s2_25a", label: "25m crawl sprint — 15s récup", distance: 25, emoji: "📈" },
+      { id: "pyr_s2_50a", label: "50m crawl sprint — 20s récup", distance: 50, emoji: "📈" },
+      { id: "pyr_s2_50b", label: "50m brasse rapide — 20s récup", distance: 50, emoji: "🐸" },
+      { id: "pyr_s2_50c", label: "50m crawl sprint — 20s récup", distance: 50, emoji: "📉" },
+      { id: "pyr_s2_25b", label: "25m crawl sprint", distance: 25, emoji: "📉" },
+      { id: "pyr_s3_25a", label: "25m crawl sprint — 15s récup", distance: 25, emoji: "📈" },
+      { id: "pyr_s3_50a", label: "50m crawl sprint — 20s récup", distance: 50, emoji: "📈" },
+      { id: "pyr_s3_50b", label: "50m brasse rapide — 20s récup", distance: 50, emoji: "🐸" },
+      { id: "pyr_s3_50c", label: "50m crawl sprint — 20s récup", distance: 50, emoji: "📉" },
+      { id: "pyr_s3_25b", label: "25m crawl sprint", distance: 25, emoji: "📉" },
+      { id: "fin_1", label: "25m sprint MAX crawl — 20s récup", distance: 25, emoji: "🔥" },
+      { id: "fin_2", label: "25m sprint MAX — 20s récup", distance: 25, emoji: "🔥" },
+      { id: "fin_3", label: "25m sprint MAX — 20s récup", distance: 25, emoji: "🔥" },
+      { id: "fin_4", label: "25m sprint MAX — 20s récup", distance: 25, emoji: "🔥" },
+      { id: "fin_5", label: "25m sprint MAX — 20s récup", distance: 25, emoji: "🔥" },
+      { id: "fin_6", label: "25m sprint MAX — 20s récup", distance: 25, emoji: "🔥" },
+      { id: "fin_7", label: "25m sprint MAX — 20s récup", distance: 25, emoji: "🔥" },
+      { id: "fin_8", label: "25m sprint MAX — 20s récup", distance: 25, emoji: "🔥" },
+      { id: "cooldown", label: "Retour au calme — 200m brasse souple", distance: 200, emoji: "🐢" },
+    ],
+    totalDistance: 1400,
+    info: "55 min — ~450-550 kcal — Pyramide ×3 + finisher 8×25m",
+  },
+};
+
+const REST_PRESETS = [
+  { label: "1:30", seconds: 90 },
+  { label: "1:00", seconds: 60 },
+  { label: "0:45", seconds: 45 },
 ];
 
 const SYMPTOMS = ["Énergie","Humeur","Sommeil","Digestion","Peau","Cheveux","Dos","Mâchoire","Vue","Libido","Stress","Concentration","Articulations"];
@@ -237,6 +406,46 @@ function RewardCard({ reward, unlocked, isNew, onClick }) {
   );
 }
 
+// ---- REST TIMER ----
+function RestTimer({ seconds, running, preset, onStop, onDismiss }) {
+  if (!running && seconds <= 0) return null;
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  const pct = preset > 0 ? (seconds / preset) * 100 : 0;
+  const isLow = seconds <= 10 && seconds > 0;
+  const isDone = !running && seconds <= 0;
+  const r = 20, circ = 2 * Math.PI * r;
+
+  return (
+    <div style={{
+      position: "fixed", bottom: 90, left: "50%", transform: "translateX(-50%)",
+      background: "linear-gradient(135deg,#0d0d24,#1a1a3a)", border: `2px solid ${isDone ? "#ffeb3b" : isLow ? "#e94560" : "#4caf50"}`,
+      borderRadius: 20, padding: "12px 20px", zIndex: 200, display: "flex", alignItems: "center", gap: 14,
+      boxShadow: `0 8px 32px rgba(${isLow ? "233,69,96" : "76,175,80"},.3)`,
+      animation: isLow ? "pulse 0.5s infinite" : "none", minWidth: 200, justifyContent: "center",
+    }}>
+      <div style={{ width: 48, height: 48, position: "relative", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <svg width={48} height={48} style={{ transform: "rotate(-90deg)" }}>
+          <circle cx={24} cy={24} r={r} fill="none" stroke="#1e1e4a" strokeWidth={3} />
+          <circle cx={24} cy={24} r={r} fill="none" stroke={isLow ? "#e94560" : "#4caf50"}
+            strokeWidth={3} strokeDasharray={circ} strokeDashoffset={circ * (1 - pct / 100)}
+            strokeLinecap="round" style={{ transition: "stroke-dashoffset 1s linear" }} />
+        </svg>
+        <span style={{ position: "absolute", fontSize: 14, fontWeight: 800, fontFamily: "'Space Mono'", color: isLow ? "#e94560" : "#fff" }}>
+          {mins}:{secs.toString().padStart(2, "0")}
+        </span>
+      </div>
+      <div style={{ display: "flex", gap: 6 }}>
+        {running ? (
+          <div onClick={onStop} style={{ padding: "6px 14px", borderRadius: 10, background: "rgba(233,69,96,.2)", color: "#e94560", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>Stop</div>
+        ) : (
+          <div onClick={onDismiss} style={{ padding: "6px 14px", borderRadius: 10, background: "rgba(76,175,80,.2)", color: "#4caf50", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>OK</div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ---- LOGIN SCREEN ----
 function LoginScreen() {
   const [email, setEmail] = useState("");
@@ -291,6 +500,10 @@ export default function App() {
   const [showRewardPopup, setShowRewardPopup] = useState(null);
   const [session, setSession] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
+  const [timerSeconds, setTimerSeconds] = useState(0);
+  const [timerRunning, setTimerRunning] = useState(false);
+  const [timerPreset, setTimerPreset] = useState(90);
+  const timerRef = useRef(null);
 
   // Auth listener
   useEffect(() => {
@@ -331,6 +544,32 @@ export default function App() {
     window.addEventListener("online", handleOnline);
     return () => window.removeEventListener("online", handleOnline);
   }, [session, data]);
+
+  // Rest timer
+  useEffect(() => {
+    if (timerRunning && timerSeconds > 0) {
+      timerRef.current = setTimeout(() => setTimerSeconds(s => s - 1), 1000);
+    } else if (timerRunning && timerSeconds <= 0) {
+      setTimerRunning(false);
+      try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.frequency.value = 880; gain.gain.value = 0.3;
+        osc.start();
+        gain.gain.setValueAtTime(0.3, ctx.currentTime);
+        gain.gain.setValueAtTime(0, ctx.currentTime + 0.15);
+        gain.gain.setValueAtTime(0.3, ctx.currentTime + 0.3);
+        gain.gain.setValueAtTime(0, ctx.currentTime + 0.45);
+        gain.gain.setValueAtTime(0.3, ctx.currentTime + 0.6);
+        gain.gain.setValueAtTime(0, ctx.currentTime + 0.75);
+        osc.stop(ctx.currentTime + 0.8);
+      } catch (e) { /* audio not available */ }
+      if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+    }
+    return () => clearTimeout(timerRef.current);
+  }, [timerRunning, timerSeconds]);
 
   const save = useCallback((nd) => {
     setData(nd);
@@ -376,6 +615,48 @@ export default function App() {
   const setTemp = useCallback((slot, v) => { const nd = JSON.parse(JSON.stringify(data)); if (!nd.days[selectedDate]) nd.days[selectedDate] = {}; if (!nd.days[selectedDate].temp) nd.days[selectedDate].temp = {}; nd.days[selectedDate].temp[slot] = v; save(nd); }, [data, selectedDate, save]);
   const setWeightData = useCallback((f, v) => { const wk = `w${getWeekNumber(selectedDate)}`; const nd = JSON.parse(JSON.stringify(data)); if (!nd.weight[wk]) nd.weight[wk] = {}; nd.weight[wk][f] = v; save(nd); }, [data, selectedDate, save]);
 
+  const toggleSportSeries = useCallback((exerciseId, seriesIndex) => {
+    const dk = selectedDate;
+    const nd = JSON.parse(JSON.stringify(data));
+    if (!nd.days[dk]) nd.days[dk] = {};
+    if (!nd.days[dk].sport) nd.days[dk].sport = { exercises: {}, blocks: {} };
+    if (!nd.days[dk].sport.exercises[exerciseId]) nd.days[dk].sport.exercises[exerciseId] = { series: [], reps: [] };
+    const ex = nd.days[dk].sport.exercises[exerciseId];
+    const was = ex.series[seriesIndex] || false;
+    ex.series[seriesIndex] = !was;
+    if (!was) { setTimerSeconds(timerPreset); setTimerRunning(true); }
+    save(nd);
+  }, [data, selectedDate, save, timerPreset]);
+
+  const setSportReps = useCallback((exerciseId, seriesIndex, reps) => {
+    const dk = selectedDate;
+    const nd = JSON.parse(JSON.stringify(data));
+    if (!nd.days[dk]) nd.days[dk] = {};
+    if (!nd.days[dk].sport) nd.days[dk].sport = { exercises: {}, blocks: {} };
+    if (!nd.days[dk].sport.exercises[exerciseId]) nd.days[dk].sport.exercises[exerciseId] = { series: [], reps: [] };
+    nd.days[dk].sport.exercises[exerciseId].reps[seriesIndex] = reps;
+    save(nd);
+  }, [data, selectedDate, save]);
+
+  const toggleSportBlock = useCallback((blockId) => {
+    const dk = selectedDate;
+    const nd = JSON.parse(JSON.stringify(data));
+    if (!nd.days[dk]) nd.days[dk] = {};
+    if (!nd.days[dk].sport) nd.days[dk].sport = { exercises: {}, blocks: {} };
+    const was = nd.days[dk].sport.blocks[blockId] || false;
+    nd.days[dk].sport.blocks[blockId] = !was;
+    save(nd);
+  }, [data, selectedDate, save]);
+
+  const setSportNotes = useCallback((notes) => {
+    const dk = selectedDate;
+    const nd = JSON.parse(JSON.stringify(data));
+    if (!nd.days[dk]) nd.days[dk] = {};
+    if (!nd.days[dk].sport) nd.days[dk].sport = { exercises: {}, blocks: {} };
+    nd.days[dk].sport.notes = notes;
+    save(nd);
+  }, [data, selectedDate, save]);
+
   function calcStreak(d) {
     let streak = 0; const today = new Date(getToday());
     for (let i = 0; i < 60; i++) { const dt = new Date(today); dt.setDate(dt.getDate() - i); const k = dt.toISOString().split("T")[0]; const dd = d.days[k]; if (!dd) break; const h = dd.habits ? Object.values(dd.habits).filter(Boolean).length : 0; const m = dd.meals ? Object.values(dd.meals).filter(Boolean).length : 0; if (h + m >= 8) streak++; else break; }
@@ -419,6 +700,7 @@ export default function App() {
   const tabs = [
     { id: "dashboard", label: "🏠", name: "Home" },
     { id: "habits", label: "✅", name: "Habitudes" },
+    { id: "sport", label: "💪", name: "Sport" },
     { id: "food", label: "🍽️", name: "Repas" },
     { id: "supps", label: "💊", name: "Suppl." },
     { id: "health", label: "🩺", name: "Santé" },
@@ -452,7 +734,8 @@ export default function App() {
         .na{width:40px;height:40px;border-radius:12px;border:1px solid #2a2a4a;background:#0d0d24;color:white;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:16px;transition:all .15s;-webkit-tap-highlight-color:transparent}
         .na:active{transform:scale(.95);border-color:#e94560}
         input[type=number],input[type=text]{background:#0d0d24;border:1px solid #2a2a4a;border-radius:10px;color:white;padding:10px 12px;font-family:'Space Mono';font-size:14px;width:80px;text-align:center;outline:none;-webkit-appearance:none}
-        input:focus{border-color:#e94560!important}
+        input:focus,textarea:focus{border-color:#e94560!important}
+        textarea{-webkit-appearance:none;font-family:'Outfit',sans-serif}
         .recharts-text{fill:#888!important;font-size:10px!important}
         @media(min-width:769px){
           .app-root{max-width:1200px!important;padding-bottom:0!important;display:flex!important;flex-direction:row!important}
@@ -501,6 +784,10 @@ export default function App() {
           <div style={{ fontSize: 13, color: "#999", maxWidth: 280, textAlign: "center" }}>{showRewardPopup.desc}</div>
         </div>
       )}
+
+      {/* REST TIMER FLOATING */}
+      <RestTimer seconds={timerSeconds} running={timerRunning} preset={timerPreset}
+        onStop={() => setTimerRunning(false)} onDismiss={() => { setTimerSeconds(0); setTimerRunning(false); }} />
 
       {/* MAIN CONTENT COLUMN */}
       <div className="main-col">
@@ -558,7 +845,7 @@ export default function App() {
           <div className="card" style={{ padding: 12 }}><div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>🗺️ Paris → Rome</div><MapSVG xp={data.totalXP} /></div>
           <div className="card" style={{ textAlign: "center", padding: "16px 20px" }}><div style={{ fontSize: 13, fontWeight: 700, marginBottom: 4 }}>👤 Ma transformation</div><div style={{ fontSize: 10, color: "#888", marginBottom: 8 }}>{avatarStage.label}</div><div style={{ animation: "breathe 3s ease infinite" }}><AvatarSVG stage={avatarStage} size={140} /></div><div style={{ display: "flex", justifyContent: "center", gap: 4, marginTop: 8 }}>{AVATAR_STAGES.map((s, i) => (<div key={i} style={{ width: 8, height: 8, borderRadius: 4, background: data.totalXP >= s.min ? "#e94560" : "#1e1e4a", transition: "all .3s" }} />))}</div></div>
           {(() => { const nw = WEEKLY_REWARDS.find(r => !isWeekComplete(data, r.week)); const na = ACHIEVEMENT_REWARDS.find(r => !r.check(data)); const next = nw || na; if (!next) return null; return (<div className="card" style={{ padding: 14, cursor: "pointer", border: "1px solid #2a1a4a" }} onClick={() => setTab("rewards")}><div style={{ display: "flex", alignItems: "center", gap: 12 }}><div style={{ width: 44, height: 44, borderRadius: 12, background: "#111", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22 }}>🔒</div><div style={{ flex: 1 }}><div style={{ fontSize: 11, color: "#ffeb3b", fontWeight: 700 }}>Prochain cadeau</div><div style={{ fontSize: 12, color: "#888", marginTop: 2 }}>{next.condition || `Semaine ${next.week} — Score ≥ 70%`}</div></div><div style={{ fontSize: 18, color: "#444" }}>→</div></div></div>); })()}
-          <div className="card"><div style={{ fontSize: 13, fontWeight: 700, marginBottom: 10 }}>📅 Planning</div>{(() => { const dow = new Date(selectedDate).getDay(); const p = { 1: ["PUSH + Coupole", "Souplesse 60min"], 2: ["PULL + Natation VMA", "Souplesse 60min"], 3: ["Course VMA + Coupole", "Souplesse 60min"], 4: ["SUPER SET + Natation Endurance", "Souplesse 60min"], 5: ["JAMBES + Natation VMA", "Souplesse 60min"], 6: ["Coupole longue", "Souplesse complète"], 0: ["Repos", "Yoga flow"] }[dow]; return (<div style={{ display: "flex", gap: 6 }}>{[{ t: "☀️", v: p[0] }, { t: "🌙", v: p[1] }].map((x, i) => (<div key={i} style={{ flex: 1, background: "#0a0a1a", borderRadius: 12, padding: "10px 12px", border: "1px solid #1e1e4a" }}><div style={{ fontSize: 16, marginBottom: 4 }}>{x.t}</div><div style={{ fontSize: 12, fontWeight: 600, color: x.v === "Repos" ? "#4caf50" : "#fff" }}>{x.v}</div></div>))}</div>); })()}</div>
+          <div className="card"><div style={{ fontSize: 13, fontWeight: 700, marginBottom: 10 }}>📅 Planning</div>{(() => { const dow = new Date(selectedDate).getDay(); const s = SPORT_DAYS[dow]; const label = `${s.emoji} ${s.label}${s.subtitle ? " — " + s.subtitle : ""}`; return (<div style={{ display: "flex", gap: 6 }}>{[{ t: "☀️", v: label }, { t: "🌙", v: "Souplesse 60min" }].map((x, i) => (<div key={i} style={{ flex: 1, background: "#0a0a1a", borderRadius: 12, padding: "10px 12px", border: "1px solid #1e1e4a", cursor: i === 0 ? "pointer" : "default" }} onClick={i === 0 ? () => setTab("sport") : undefined}><div style={{ fontSize: 16, marginBottom: 4 }}>{x.t}</div><div style={{ fontSize: 12, fontWeight: 600 }}>{x.v}</div></div>))}</div>); })()}</div>
           <div className="card"><div style={{ display: "flex", justifyContent: "space-around", textAlign: "center" }}>{[{ l: "Glucides", v: "175g", c: "#ffeb3b" }, { l: "Protéines", v: "200g", c: "#e94560" }, { l: "Lipides", v: "70g", c: "#4caf50" }].map((m, i) => (<div key={i}><div style={{ width: 48, height: 48, borderRadius: "50%", border: `2.5px solid ${m.c}`, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 4px", fontSize: 13, fontWeight: 800, fontFamily: "'Space Mono'" }}>{m.v}</div><div style={{ fontSize: 10, color: "#666" }}>{m.l}</div></div>))}</div><div style={{ textAlign: "center", marginTop: 10, fontSize: 18, fontWeight: 900, fontFamily: "'Space Mono'", color: "#e94560" }}>2 130 kcal</div></div>
         </div>)}
 
@@ -567,6 +854,215 @@ export default function App() {
         {tab === "food" && (<div className="card"><div style={{ fontSize: 13, fontWeight: 700, marginBottom: 10 }}>🍽️ Plan sèche — 2 130 kcal</div>{MEALS.map(m => { const done = dayData.meals?.[m.id] || false; return (<div key={m.id} className={`ci ${done ? "done" : ""}`} onClick={() => toggleItem("meals", m.id, m.xp)}><div className="cb">{done ? "✓" : ""}</div><span style={{ fontSize: 18 }}>{m.emoji}</span><span style={{ flex: 1, fontSize: 13 }}>{m.label}</span><span className="xp">+{m.xp}</span></div>); })}<div style={{ marginTop: 12, padding: 10, background: "rgba(233,69,96,.06)", borderRadius: 12, fontSize: 12, textAlign: "center" }}>Budget : <span style={{ color: "#ffeb3b", fontWeight: 700, fontFamily: "'Space Mono'" }}>13,27 - 14,21€/jour</span></div></div>)}
 
         {tab === "supps" && (<div style={{ display: "flex", flexDirection: "column", gap: 12 }}><div className="card"><div style={{ fontSize: 13, fontWeight: 700, marginBottom: 10 }}>💊 Suppléments</div>{SUPPS.map(s => { const done = dayData.supps?.[s.id] || false; return (<div key={s.id} className={`ci ${done ? "done" : ""}`} onClick={() => toggleItem("supps", s.id, 5)}><div className="cb">{done ? "✓" : ""}</div><span style={{ fontSize: 18 }}>{s.emoji}</span><span style={{ flex: 1, fontSize: 13 }}>{s.label}</span><span className="xp">+5</span></div>); })}</div><div className="card" style={{ padding: 14 }}><div style={{ fontSize: 12, fontWeight: 700, marginBottom: 8 }}>⏰ Timing</div>{[{ t: "🌅 À jeun", v: "Collagène → jus d'orange" }, { t: "🍳 Petit-déj", v: "D3+K2+E+B+Mg" }, { t: "🥩 Midi", v: "Calcium+vinaigre+Mg" }, { t: "🏋️ Post-train", v: "Whey+Créatine" }, { t: "🌙 Dodo", v: "Taurine+Zinc+Mg" }].map((x, i) => (<div key={i} style={{ display: "flex", gap: 8, padding: "5px 0", fontSize: 11, borderBottom: i < 4 ? "1px solid #1a1a2e" : "none" }}><span style={{ color: "#e94560", fontWeight: 600, minWidth: 90 }}>{x.t}</span><span style={{ color: "#999" }}>{x.v}</span></div>))}</div></div>)}
+
+        {tab === "sport" && (() => {
+          const dow = new Date(selectedDate).getDay();
+          const session = SPORT_DAYS[dow];
+          const sportData = dayData.sport || {};
+          const isMuscu = session.type === "muscu";
+          const dayNames = ["Dim","Lun","Mar","Mer","Jeu","Ven","Sam"];
+
+          // Group exercises into supersets for muscu
+          const groupedExercises = [];
+          if (isMuscu && session.exercises) {
+            const used = new Set();
+            for (const ex of session.exercises) {
+              if (used.has(ex.id)) continue;
+              const group = [ex];
+              used.add(ex.id);
+              if (ex.superset) {
+                let next = session.exercises.find(e => e.id === ex.superset);
+                while (next && !used.has(next.id)) {
+                  group.push(next);
+                  used.add(next.id);
+                  next = next.superset ? session.exercises.find(e => e.id === next.superset) : null;
+                }
+              }
+              groupedExercises.push(group);
+            }
+          }
+
+          return (
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+
+              {/* WEEK OVERVIEW */}
+              <div className="card" style={{ padding: 12 }}>
+                <div style={{ display: "flex", gap: 4, justifyContent: "space-between" }}>
+                  {[1,2,3,4,5,6,0].map(d => {
+                    const s = SPORT_DAYS[d];
+                    const isToday = d === dow;
+                    return (
+                      <div key={d} style={{ flex: 1, textAlign: "center", padding: "8px 2px", borderRadius: 12,
+                        background: isToday ? "rgba(233,69,96,.15)" : "transparent",
+                        border: isToday ? "1px solid #e94560" : "1px solid transparent",
+                      }}>
+                        <div style={{ fontSize: 9, color: isToday ? "#e94560" : "#555", fontWeight: 700 }}>{dayNames[d]}</div>
+                        <div style={{ fontSize: 14, marginTop: 2 }}>{s.emoji}</div>
+                        <div style={{ fontSize: 7, color: isToday ? "#fff" : "#444", marginTop: 2 }}>{s.label.split(" ")[0]}</div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* SESSION HEADER */}
+              <div className="card" style={{ background: "linear-gradient(145deg,#1a0a2e,#0d0d24)", border: "1px solid #2a1a4a", textAlign: "center", padding: "20px 16px" }}>
+                <div style={{ fontSize: 36 }}>{session.emoji}</div>
+                <div style={{ fontSize: 18, fontWeight: 800, marginTop: 4 }}>{session.label}</div>
+                <div style={{ fontSize: 12, color: "#888" }}>{session.subtitle}</div>
+                {!isMuscu && (<div style={{ marginTop: 8 }}><span style={{ background: "linear-gradient(135deg,#e94560,#c23152)", padding: "4px 12px", borderRadius: 20, fontSize: 12, fontWeight: 700, fontFamily: "'Space Mono'" }}>{session.totalDistance}m</span></div>)}
+                {!isMuscu && session.info && <div style={{ marginTop: 8, fontSize: 11, color: "#666" }}>{session.info}</div>}
+              </div>
+
+              {/* ABS CIRCUIT (muscu days with abs) */}
+              {isMuscu && session.hasAbsCircuit && (
+                <div className="card" style={{ padding: 14 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+                    <span style={{ fontSize: 20 }}>🔥</span>
+                    <div>
+                      <div style={{ fontSize: 12, fontWeight: 700 }}>Circuit Abdos</div>
+                      <div style={{ fontSize: 10, color: "#888" }}>15-20 min — 3-4 passages</div>
+                    </div>
+                  </div>
+                  {ABS_CIRCUIT.map(ab => {
+                    const done = sportData.exercises?.[ab.id]?.series?.[0] || false;
+                    return (
+                      <div key={ab.id} className={`ci ${done ? "done" : ""}`} onClick={() => toggleSportSeries(ab.id, 0)} style={{ padding: "10px 14px" }}>
+                        <div className="cb">{done ? "✓" : ""}</div>
+                        <span style={{ fontSize: 16 }}>{ab.emoji}</span>
+                        <span style={{ flex: 1, fontSize: 12, fontWeight: done ? 600 : 400 }}>{ab.label}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* MUSCULATION EXERCISES */}
+              {isMuscu && groupedExercises.map((group, gi) => {
+                const isSuperset = group.length > 1;
+                return (
+                  <div key={gi} className="card" style={{ padding: 14 }}>
+                    {isSuperset && (
+                      <div style={{ fontSize: 10, fontWeight: 700, color: "#e94560", marginBottom: 8, letterSpacing: 1 }}>
+                        🔄 SUPERSET {gi + 1}
+                      </div>
+                    )}
+                    {group.map(ex => {
+                      const exData = sportData.exercises?.[ex.id] || { series: [], reps: [] };
+                      const doneCount = (exData.series || []).filter(Boolean).length;
+                      return (
+                        <div key={ex.id} style={{ marginBottom: group.indexOf(ex) < group.length - 1 ? 14 : 0 }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                            <span style={{ fontSize: 18 }}>{ex.emoji}</span>
+                            <div style={{ flex: 1 }}>
+                              <div style={{ fontSize: 12, fontWeight: 700 }}>{ex.label}</div>
+                              <div style={{ fontSize: 10, color: "#888" }}>
+                                {ex.series}×{ex.reps}{ex.tempo ? ` — ${ex.tempo}` : ""} — {ex.rest}s récup
+                                {doneCount > 0 && <span style={{ color: doneCount === ex.series ? "#4caf50" : "#e94560", fontWeight: 700 }}> {doneCount}/{ex.series}</span>}
+                              </div>
+                            </div>
+                            {doneCount === ex.series && <span style={{ fontSize: 16 }}>✅</span>}
+                          </div>
+                          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                            {[...Array(ex.series)].map((_, i) => {
+                              const done = exData.series?.[i] || false;
+                              return (
+                                <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+                                  <div onClick={() => toggleSportSeries(ex.id, i)} style={{
+                                    width: 44, height: 44, borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center",
+                                    cursor: "pointer", background: done ? "linear-gradient(135deg,#4caf50,#2e7d32)" : "#0a0a1a",
+                                    border: `2px solid ${done ? "#4caf50" : "#2a2a4a"}`, fontSize: 13, fontWeight: 800,
+                                    fontFamily: "'Space Mono'", color: done ? "#fff" : "#555", transition: "all .2s",
+                                  }}>
+                                    {done ? "✓" : `S${i + 1}`}
+                                  </div>
+                                  <input type="number" placeholder={ex.reps.split("-")[0] || "-"} value={exData.reps?.[i] || ""}
+                                    onChange={e => setSportReps(ex.id, i, e.target.value)}
+                                    style={{ width: 44, padding: "4px 2px", borderRadius: 8, background: "#0a0a1a",
+                                      border: "1px solid #1e1e4a", color: "#fff", fontSize: 11, textAlign: "center", fontFamily: "'Space Mono'" }}
+                                  />
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })}
+
+              {/* NATATION BLOCKS */}
+              {!isMuscu && (
+                <div className="card">
+                  <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 10 }}>🏊 Programme</div>
+                  {session.blocks.map(block => {
+                    const done = sportData.blocks?.[block.id] || false;
+                    return (
+                      <div key={block.id} className={`ci ${done ? "done" : ""}`} onClick={() => toggleSportBlock(block.id)}>
+                        <div className="cb">{done ? "✓" : ""}</div>
+                        <span style={{ fontSize: 18 }}>{block.emoji}</span>
+                        <span style={{ flex: 1, fontSize: 13 }}>{block.label}</span>
+                        <span style={{ fontSize: 11, fontFamily: "'Space Mono'", color: done ? "#4caf50" : "#555" }}>{block.distance}m</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* NATATION PROGRESS */}
+              {!isMuscu && (() => {
+                const completedDist = session.blocks.filter(b => sportData.blocks?.[b.id]).reduce((sum, b) => sum + b.distance, 0);
+                return (
+                  <div className="card" style={{ padding: 14, textAlign: "center" }}>
+                    <div style={{ fontSize: 11, color: "#888", marginBottom: 6 }}>Distance</div>
+                    <div style={{ fontSize: 28, fontWeight: 900, fontFamily: "'Space Mono'", color: completedDist >= session.totalDistance ? "#4caf50" : "#e94560" }}>
+                      {completedDist}<span style={{ fontSize: 14, color: "#555" }}>/{session.totalDistance}m</span>
+                    </div>
+                    <div style={{ height: 6, background: "#0a0a1a", borderRadius: 3, marginTop: 8, overflow: "hidden" }}>
+                      <div style={{ width: `${Math.min((completedDist / session.totalDistance) * 100, 100)}%`, height: "100%",
+                        background: "linear-gradient(90deg,#4caf50,#2e7d32)", borderRadius: 3, transition: "width .5s" }} />
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* REST TIMER CONTROLS (muscu only) */}
+              {isMuscu && (
+                <div className="card" style={{ padding: 14 }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 8 }}>⏱️ Chrono récup</div>
+                  <div style={{ display: "flex", gap: 6 }}>
+                    {REST_PRESETS.map(p => (
+                      <div key={p.seconds} onClick={() => setTimerPreset(p.seconds)} style={{
+                        flex: 1, padding: "8px 0", borderRadius: 10, textAlign: "center", cursor: "pointer",
+                        fontSize: 13, fontWeight: 700, fontFamily: "'Space Mono'",
+                        background: timerPreset === p.seconds ? "rgba(233,69,96,.15)" : "#0a0a1a",
+                        border: `1px solid ${timerPreset === p.seconds ? "#e94560" : "#1e1e4a"}`,
+                        color: timerPreset === p.seconds ? "#e94560" : "#555",
+                      }}>{p.label}</div>
+                    ))}
+                    <div onClick={() => { setTimerSeconds(timerPreset); setTimerRunning(true); }} style={{
+                      flex: 1, padding: "8px 0", borderRadius: 10, textAlign: "center", cursor: "pointer",
+                      fontSize: 13, fontWeight: 700, background: "linear-gradient(135deg,#e94560,#c23152)", color: "#fff",
+                    }}>GO</div>
+                  </div>
+                </div>
+              )}
+
+              {/* NOTES */}
+              <div className="card" style={{ padding: 14 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 6 }}>📝 Notes</div>
+                <textarea value={sportData.notes || ""} onChange={e => setSportNotes(e.target.value)}
+                  placeholder="Poids utilisés, sensations..."
+                  style={{ width: "100%", minHeight: 60, background: "#0a0a1a", border: "1px solid #1e1e4a",
+                    borderRadius: 10, color: "#fff", padding: 10, fontSize: 12, fontFamily: "'Outfit'",
+                    resize: "vertical", outline: "none", boxSizing: "border-box" }}
+                />
+              </div>
+
+            </div>
+          );
+        })()}
 
         {tab === "health" && (<div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           <div className="card"><div style={{ fontSize: 13, fontWeight: 700, marginBottom: 10 }}>🌡️ Température — Ray Peat</div>{[{ id: "reveil", label: "🌅 Réveil", norm: "36.6-37.0", lo: 36.6, hi: 37.0, warnLo: 36.4 }, { id: "apres_repas", label: "🍳 Après repas", norm: "36.8-37.2", lo: 36.8, hi: 37.2, warnLo: 36.6 }, { id: "aprem", label: "🌆 Fin aprem", norm: "36.8-37.2", lo: 36.8, hi: 37.2, warnLo: 36.6 }].map(slot => { const val = dayData.temp?.[slot.id] || ""; const n = parseFloat(val); let st = "", sc = "#555"; if (val && !isNaN(n)) { if (n >= slot.lo && n <= slot.hi) { st = "✅"; sc = "#4caf50"; } else if (n < slot.warnLo) { st = "⚠️"; sc = "#e94560"; } else if (n < slot.lo) { st = "🟡"; sc = "#ff9800"; } else { st = "🔴"; sc = "#e94560"; } } return (<div key={slot.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 0", borderBottom: "1px solid #111" }}><span style={{ fontSize: 12, flex: 1 }}>{slot.label} <span style={{ color: "#4caf50", fontSize: 10 }}>({slot.norm})</span></span><input type="number" step="0.1" min="35" max="39" value={val} placeholder="36.8" onChange={e => setTemp(slot.id, e.target.value)} style={{ width: 72 }} /><span style={{ fontSize: 12, color: sc, minWidth: 24 }}>{st}</span></div>); })}</div>
