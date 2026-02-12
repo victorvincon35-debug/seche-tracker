@@ -295,11 +295,37 @@ function getWeekDates(mondayStr) {
   return dates;
 }
 
+function doesRecur(event, dateStr) {
+  if (!event.recurrence || event.recurrence.type === "none") return false;
+  if (dateStr < event.date) return false;
+  if (dateStr === event.date) return false; // exact date already matched as non-recurring
+  const dow = new Date(dateStr).getDay();
+  switch (event.recurrence.type) {
+    case "daily": return true;
+    case "weekly": return dow === new Date(event.date).getDay();
+    case "weekdays": return dow >= 1 && dow <= 5;
+    case "custom": return (event.recurrence.days || []).includes(dow);
+    default: return false;
+  }
+}
+
 function getEventsForDate(planning, dateStr) {
-  return Object.entries(planning || {})
-    .filter(([_, e]) => e.date === dateStr)
-    .map(([id, e]) => ({ ...e, id }))
-    .sort((a, b) => a.startH * 60 + a.startM - (b.startH * 60 + b.startM));
+  const results = [];
+  for (const [id, e] of Object.entries(planning || {})) {
+    const isExactDate = e.date === dateStr;
+    const isRecurring = doesRecur(e, dateStr);
+    if (!isExactDate && !isRecurring) continue;
+    // Check exceptions
+    const exception = e.exceptions?.[dateStr];
+    if (exception === "deleted") continue;
+    // Build occurrence
+    let occ = { ...e, id, _occurrenceDate: dateStr, _isRecurring: !!(e.recurrence && e.recurrence.type !== "none") };
+    if (exception && typeof exception === "object") {
+      occ = { ...occ, ...exception };
+    }
+    results.push(occ);
+  }
+  return results.sort((a, b) => a.startH * 60 + a.startM - (b.startH * 60 + b.startM));
 }
 
 function getEventPosition(event) {
@@ -517,17 +543,43 @@ function EventModal({ event, onSave, onDelete, onClose }) {
   const [endM, setEndM] = useState(event.endM ?? 0);
   const [color, setColor] = useState(event.color || EVENT_COLORS[0].hex);
   const [notes, setNotes] = useState(event.notes || "");
+  const [recurrenceType, setRecurrenceType] = useState(event.recurrence?.type || "none");
+  const [recurrenceDays, setRecurrenceDays] = useState(event.recurrence?.days || []);
+
+  const isSingleEdit = event._editMode === "single";
+
+  const weeklyDayLabel = (() => {
+    const d = new Date(date || getToday());
+    return ["dimanche","lundi","mardi","mercredi","jeudi","vendredi","samedi"][d.getDay()];
+  })();
 
   const handleSave = () => {
     if (!title.trim()) return;
     let sH = parseInt(startH), sM = parseInt(startM);
     let eH = parseInt(endH), eM = parseInt(endM);
     if (eH * 60 + eM <= sH * 60 + sM) { eH = Math.min(sH + 1, 23); eM = sM; }
-    onSave({ ...(event.id ? { id: event.id } : {}), title: title.trim(), date, startH: sH, startM: sM, endH: eH, endM: eM, color, notes });
+    const result = { ...(event.id ? { id: event.id } : {}), title: title.trim(), date, startH: sH, startM: sM, endH: eH, endM: eM, color, notes };
+    if (isSingleEdit) {
+      result._editMode = "single";
+      result._occurrenceDate = event._occurrenceDate;
+    } else {
+      if (recurrenceType !== "none") {
+        result.recurrence = { type: recurrenceType };
+        if (recurrenceType === "custom") result.recurrence.days = recurrenceDays;
+      } else {
+        result.recurrence = null;
+      }
+    }
+    onSave(result);
   };
 
   const hourOptions = Array.from({ length: 18 }, (_, i) => i + 6);
   const minuteOptions = [0, 15, 30, 45];
+  const dayToggleNames = ["Dim","Lun","Mar","Mer","Jeu","Ven","Sam"];
+
+  const toggleCustomDay = (dayIdx) => {
+    setRecurrenceDays(prev => prev.includes(dayIdx) ? prev.filter(d => d !== dayIdx) : [...prev, dayIdx]);
+  };
 
   return (
     <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.85)", zIndex: 999, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
@@ -580,12 +632,40 @@ function EventModal({ event, onSave, onDelete, onClose }) {
           </div>
         </div>
 
+        {!isSingleEdit && (
+          <div style={{ marginBottom: 12 }}>
+            <div style={{ fontSize: 10, color: "#555", marginBottom: 6 }}>Répéter</div>
+            <select value={recurrenceType} onChange={e => setRecurrenceType(e.target.value)}
+              style={{ ...selectStyle, width: "100%", marginBottom: recurrenceType === "custom" ? 8 : 0 }}>
+              <option value="none">Ne pas répéter</option>
+              <option value="daily">Tous les jours</option>
+              <option value="weekly">Chaque semaine le {weeklyDayLabel}</option>
+              <option value="weekdays">Du lundi au vendredi</option>
+              <option value="custom">Personnalisé</option>
+            </select>
+            {recurrenceType === "custom" && (
+              <div style={{ display: "flex", gap: 4, justifyContent: "center" }}>
+                {dayToggleNames.map((name, i) => (
+                  <div key={i} onClick={() => toggleCustomDay(i)}
+                    style={{ width: 36, height: 36, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center",
+                      fontSize: 10, fontWeight: 700, cursor: "pointer", transition: "all .15s",
+                      background: recurrenceDays.includes(i) ? "rgba(233,69,96,.2)" : "#0a0a1a",
+                      border: `1px solid ${recurrenceDays.includes(i) ? "#e94560" : "#2a2a4a"}`,
+                      color: recurrenceDays.includes(i) ? "#e94560" : "#555" }}>
+                    {name}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         <textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Notes (optionnel)"
           style={{ width: "100%", minHeight: 50, marginBottom: 16, background: "#0a0a1a", border: "1px solid #2a2a4a", borderRadius: 12, color: "#fff", padding: 12, fontSize: 12, fontFamily: "'Outfit'", resize: "vertical", outline: "none", boxSizing: "border-box" }} />
 
         <div style={{ display: "flex", gap: 8 }}>
           {!event.isNew && (
-            <button onClick={() => onDelete(event.id)} style={{ padding: "12px 16px", borderRadius: 12, border: "none", background: "rgba(233,69,96,.15)", color: "#e94560", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "'Outfit'" }}>Supprimer</button>
+            <button onClick={() => onDelete(event)} style={{ padding: "12px 16px", borderRadius: 12, border: "none", background: "rgba(233,69,96,.15)", color: "#e94560", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "'Outfit'" }}>Supprimer</button>
           )}
           <div style={{ flex: 1 }} />
           <button onClick={onClose} style={{ padding: "12px 16px", borderRadius: 12, border: "1px solid #2a2a4a", background: "transparent", color: "#888", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "'Outfit'" }}>Annuler</button>
@@ -657,6 +737,7 @@ export default function App() {
   const [planWeekStart, setPlanWeekStart] = useState(() => getMonday(getToday()));
   const [planViewMode, setPlanViewMode] = useState("day");
   const [editingEvent, setEditingEvent] = useState(null);
+  const [recurActionPrompt, setRecurActionPrompt] = useState(null);
 
   // Auth listener
   useEffect(() => {
@@ -814,17 +895,53 @@ export default function App() {
     const nd = JSON.parse(JSON.stringify(data));
     if (!nd.planning) nd.planning = {};
     const id = event.id || Date.now().toString(36);
-    const { id: _id, isNew: _isNew, ...eventData } = event;
-    nd.planning[id] = eventData;
+    if (event._editMode === "single" && event._occurrenceDate) {
+      // Save as exception override on the template
+      const template = nd.planning[id];
+      if (template) {
+        if (!template.exceptions) template.exceptions = {};
+        const { id: _id, isNew: _isNew, _editMode: _em, _occurrenceDate: _od, _isRecurring: _ir, recurrence: _rec, exceptions: _ex, date: _date, ...overrides } = event;
+        template.exceptions[event._occurrenceDate] = overrides;
+      }
+    } else {
+      // Save template normally, preserve existing exceptions
+      const existingExceptions = nd.planning[id]?.exceptions;
+      const { id: _id, isNew: _isNew, _editMode: _em, _occurrenceDate: _od, _isRecurring: _ir, ...eventData } = event;
+      nd.planning[id] = eventData;
+      if (existingExceptions) nd.planning[id].exceptions = existingExceptions;
+    }
     save(nd);
     setEditingEvent(null);
   }, [data, save]);
 
-  const deleteEvent = useCallback((eventId) => {
+  const deleteEvent = useCallback((event) => {
     const nd = JSON.parse(JSON.stringify(data));
-    if (nd.planning) delete nd.planning[eventId];
+    if (!nd.planning) { setEditingEvent(null); return; }
+    if (event._isRecurring) {
+      // Show the recurrence action prompt
+      setEditingEvent(null);
+      setRecurActionPrompt({ event, action: "delete" });
+      return;
+    }
+    delete nd.planning[event.id];
     save(nd);
     setEditingEvent(null);
+  }, [data, save]);
+
+  const deleteEventConfirmed = useCallback((event, mode) => {
+    const nd = JSON.parse(JSON.stringify(data));
+    if (!nd.planning) return;
+    if (mode === "single" && event._occurrenceDate) {
+      const template = nd.planning[event.id];
+      if (template) {
+        if (!template.exceptions) template.exceptions = {};
+        template.exceptions[event._occurrenceDate] = "deleted";
+      }
+    } else {
+      delete nd.planning[event.id];
+    }
+    save(nd);
+    setRecurActionPrompt(null);
   }, [data, save]);
 
   const navigatePlanWeek = useCallback((dir) => {
@@ -971,6 +1088,48 @@ export default function App() {
       {/* EVENT MODAL */}
       {editingEvent && <EventModal event={editingEvent} onSave={saveEvent} onDelete={deleteEvent} onClose={() => setEditingEvent(null)} />}
 
+      {/* RECURRENCE ACTION DIALOG */}
+      {recurActionPrompt && (
+        <div onClick={() => setRecurActionPrompt(null)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.85)", zIndex: 998, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: "linear-gradient(145deg,#0d0d24,#151535)", border: "1px solid #1e1e4a", borderRadius: 20, padding: 24, width: "100%", maxWidth: 320, animation: "slideUp .3s ease" }}>
+            <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 4 }}>
+              {recurActionPrompt.action === "delete" ? "Supprimer l'événement" : "Modifier l'événement"}
+            </div>
+            <div style={{ fontSize: 12, color: "#888", marginBottom: 20 }}>
+              Cet événement est récurrent.
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              <button onClick={() => {
+                const evt = recurActionPrompt.event;
+                if (recurActionPrompt.action === "delete") {
+                  deleteEventConfirmed(evt, "single");
+                } else {
+                  setRecurActionPrompt(null);
+                  setEditingEvent({ ...evt, isNew: false, _editMode: "single" });
+                }
+              }} style={{ padding: "12px 16px", borderRadius: 12, border: "1px solid #2a2a4a", background: "rgba(74,144,217,.1)", color: "#4a90d9", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "'Outfit'", textAlign: "left" }}>
+                Cet événement uniquement
+              </button>
+              <button onClick={() => {
+                const evt = recurActionPrompt.event;
+                if (recurActionPrompt.action === "delete") {
+                  deleteEventConfirmed(evt, "all");
+                } else {
+                  setRecurActionPrompt(null);
+                  setEditingEvent({ ...evt, isNew: false });
+                }
+              }} style={{ padding: "12px 16px", borderRadius: 12, border: "1px solid #2a2a4a", background: "rgba(233,69,96,.1)", color: "#e94560", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "'Outfit'", textAlign: "left" }}>
+                Tous les événements
+              </button>
+              <button onClick={() => setRecurActionPrompt(null)}
+                style={{ padding: "10px 16px", borderRadius: 12, border: "none", background: "transparent", color: "#555", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "'Outfit'" }}>
+                Annuler
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* MAIN CONTENT COLUMN */}
       <div className="main-col">
 
@@ -1047,13 +1206,24 @@ export default function App() {
 
           const renderEventBlock = (evt, isWeekView) => {
             const { top, height } = getEventPosition(evt);
+            const handleClick = (e) => {
+              e.stopPropagation();
+              if (evt._isRecurring) {
+                setRecurActionPrompt({ event: evt, action: "edit" });
+              } else {
+                setEditingEvent({ ...evt, isNew: false });
+              }
+            };
             return (
-              <div key={evt.id} onClick={e => { e.stopPropagation(); setEditingEvent({ ...evt, isNew: false }); }}
+              <div key={`${evt.id}-${evt._occurrenceDate}`} onClick={handleClick}
                 style={{ position: "absolute", top, left: isWeekView ? 2 : 48, right: isWeekView ? 2 : 8, height,
                   background: `${evt.color}22`, borderLeft: `${isWeekView ? 3 : 4}px solid ${evt.color}`,
                   borderRadius: isWeekView ? 6 : 8, padding: isWeekView ? "2px 4px" : "6px 10px",
                   cursor: "pointer", overflow: "hidden", zIndex: 10 }}>
-                <div style={{ fontSize: isWeekView ? 9 : 12, fontWeight: 700, color: evt.color, lineHeight: 1.2 }}>{evt.title}</div>
+                <div style={{ fontSize: isWeekView ? 9 : 12, fontWeight: 700, color: evt.color, lineHeight: 1.2 }}>
+                  {evt._isRecurring && !isWeekView && <span style={{ opacity: 0.5, marginRight: 4 }}>🔄</span>}
+                  {evt.title}
+                </div>
                 {height > (isWeekView ? 30 : 24) && (
                   <div style={{ fontSize: isWeekView ? 8 : 10, color: "#888" }}>
                     {evt.startH}:{String(evt.startM).padStart(2,"0")} — {evt.endH}:{String(evt.endM).padStart(2,"0")}
@@ -1149,10 +1319,15 @@ export default function App() {
                       ))}
                       {weekDates.map((dateStr, colIdx) => (
                         <div key={dateStr} style={{ gridColumn: colIdx + 2, gridRow: "1 / -1", position: "relative",
-                          borderLeft: "1px solid #1a1a2e", background: dateStr === today ? "rgba(76,175,80,.03)" : "transparent" }}>
+                          borderLeft: "1px solid #1a1a2e", background: dateStr === today ? "rgba(76,175,80,.03)" : "transparent", cursor: "pointer" }}
+                          onClick={(e) => {
+                            const rect = e.currentTarget.getBoundingClientRect();
+                            const y = e.clientY - rect.top + e.currentTarget.scrollTop;
+                            const hour = Math.floor(y / HOUR_HEIGHT) + 6;
+                            if (hour >= 6 && hour <= 23) openNewEvent(dateStr, hour);
+                          }}>
                           {PLANNING_HOURS.map(h => (
-                            <div key={h} onClick={() => openNewEvent(dateStr, h)}
-                              style={{ height: HOUR_HEIGHT, borderTop: "1px solid #111", cursor: "pointer" }} />
+                            <div key={h} style={{ height: HOUR_HEIGHT, borderTop: "1px solid #111" }} />
                           ))}
                           {getEventsForDate(data.planning, dateStr).map(evt => renderEventBlock(evt, true))}
                         </div>
@@ -1189,10 +1364,16 @@ export default function App() {
                     </div>
                     <button className="na" style={{ width: 32, height: 32 }} onClick={() => { const d = new Date(selectedDate); d.setDate(d.getDate() + 1); setSelectedDate(d.toISOString().split("T")[0]); }}>→</button>
                   </div>
-                  <div style={{ position: "relative", overflowY: "auto", maxHeight: "65vh" }}>
+                  <div style={{ position: "relative", overflowY: "auto", maxHeight: "65vh", cursor: "pointer" }}
+                    onClick={(e) => {
+                      const rect = e.currentTarget.getBoundingClientRect();
+                      const y = e.clientY - rect.top + e.currentTarget.scrollTop;
+                      const hour = Math.floor(y / HOUR_HEIGHT) + 6;
+                      if (hour >= 6 && hour <= 23) openNewEvent(selectedDate, hour);
+                    }}>
                     {PLANNING_HOURS.map(h => (
-                      <div key={h} onClick={() => openNewEvent(selectedDate, h)}
-                        style={{ display: "flex", height: HOUR_HEIGHT, borderTop: "1px solid #111", cursor: "pointer" }}>
+                      <div key={h}
+                        style={{ display: "flex", height: HOUR_HEIGHT, borderTop: "1px solid #111" }}>
                         <div style={{ width: 44, display: "flex", alignItems: "flex-start", justifyContent: "center", paddingTop: 4,
                           fontSize: 10, color: "#444", fontFamily: "'Space Mono'" }}>{h}:00</div>
                         <div style={{ flex: 1 }} />
