@@ -257,6 +257,17 @@ const NATURO = [
   { id: "peau_seche", label: "Peau sèche", good: "Non" },
 ];
 
+// ---- PLANNING CONSTANTS ----
+const EVENT_COLORS = [
+  { id: "red", hex: "#e94560", label: "Sport" },
+  { id: "blue", hex: "#4a90d9", label: "Travail" },
+  { id: "green", hex: "#4caf50", label: "Perso" },
+  { id: "orange", hex: "#ff9800", label: "RDV" },
+  { id: "purple", hex: "#9c27b0", label: "Autre" },
+];
+const PLANNING_HOURS = Array.from({ length: 18 }, (_, i) => i + 6);
+const HOUR_HEIGHT = 48;
+
 // Helpers
 function getToday() { return new Date().toISOString().split("T")[0]; }
 function getDayNumber(d) { return Math.floor((new Date(d) - new Date(START_DATE)) / 86400000) + 1; }
@@ -265,7 +276,51 @@ function getAvatarStage(xp) { let s = AVATAR_STAGES[0]; for (const a of AVATAR_S
 function getCurrentCity(xp) { let c = CITIES[0]; for (const city of CITIES) if (xp >= city.min) c = city; return c; }
 function getNextCity(xp) { for (const c of CITIES) if (xp < c.min) return c; return null; }
 
-const defaultData = () => ({ days: {}, weeks: {}, weight: {}, totalXP: 0, bestStreak: 0, seenRewards: [] });
+function getMonday(dateStr) {
+  const d = new Date(dateStr);
+  const day = d.getDay();
+  const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+  const monday = new Date(d);
+  monday.setDate(diff);
+  return monday.toISOString().split("T")[0];
+}
+
+function getWeekDates(mondayStr) {
+  const dates = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(mondayStr);
+    d.setDate(d.getDate() + i);
+    dates.push(d.toISOString().split("T")[0]);
+  }
+  return dates;
+}
+
+function getEventsForDate(planning, dateStr) {
+  return Object.entries(planning || {})
+    .filter(([_, e]) => e.date === dateStr)
+    .map(([id, e]) => ({ ...e, id }))
+    .sort((a, b) => a.startH * 60 + a.startM - (b.startH * 60 + b.startM));
+}
+
+function getEventPosition(event) {
+  const startMinutes = (event.startH - 6) * 60 + event.startM;
+  const endMinutes = (event.endH - 6) * 60 + event.endM;
+  const top = (startMinutes / 60) * HOUR_HEIGHT;
+  const height = Math.max(((endMinutes - startMinutes) / 60) * HOUR_HEIGHT, 20);
+  return { top, height };
+}
+
+function formatWeekRange(weekDates) {
+  const months = ["Jan","Fév","Mar","Avr","Mai","Jun","Jul","Aoû","Sep","Oct","Nov","Déc"];
+  const first = new Date(weekDates[0]);
+  const last = new Date(weekDates[6]);
+  if (first.getMonth() === last.getMonth()) {
+    return `${first.getDate()} — ${last.getDate()} ${months[first.getMonth()]} ${first.getFullYear()}`;
+  }
+  return `${first.getDate()} ${months[first.getMonth()]} — ${last.getDate()} ${months[last.getMonth()]}`;
+}
+
+const defaultData = () => ({ days: {}, weeks: {}, weight: {}, planning: {}, totalXP: 0, bestStreak: 0, seenRewards: [] });
 
 
 function getWeekAvgScore(data, weekNum) {
@@ -446,6 +501,101 @@ function RestTimer({ seconds, running, preset, onStop, onDismiss }) {
   );
 }
 
+// ---- EVENT MODAL ----
+const selectStyle = {
+  background: "#0a0a1a", border: "1px solid #2a2a4a", borderRadius: 8,
+  color: "white", padding: "8px 10px", fontSize: 13, fontFamily: "'Space Mono'",
+  outline: "none", flex: 1, WebkitAppearance: "none", appearance: "none", colorScheme: "dark",
+};
+
+function EventModal({ event, onSave, onDelete, onClose }) {
+  const [title, setTitle] = useState(event.title || "");
+  const [date, setDate] = useState(event.date || getToday());
+  const [startH, setStartH] = useState(event.startH ?? 9);
+  const [startM, setStartM] = useState(event.startM ?? 0);
+  const [endH, setEndH] = useState(event.endH ?? 10);
+  const [endM, setEndM] = useState(event.endM ?? 0);
+  const [color, setColor] = useState(event.color || EVENT_COLORS[0].hex);
+  const [notes, setNotes] = useState(event.notes || "");
+
+  const handleSave = () => {
+    if (!title.trim()) return;
+    let sH = parseInt(startH), sM = parseInt(startM);
+    let eH = parseInt(endH), eM = parseInt(endM);
+    if (eH * 60 + eM <= sH * 60 + sM) { eH = Math.min(sH + 1, 23); eM = sM; }
+    onSave({ ...(event.id ? { id: event.id } : {}), title: title.trim(), date, startH: sH, startM: sM, endH: eH, endM: eM, color, notes });
+  };
+
+  const hourOptions = Array.from({ length: 18 }, (_, i) => i + 6);
+  const minuteOptions = [0, 15, 30, 45];
+
+  return (
+    <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.85)", zIndex: 999, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+      <div onClick={e => e.stopPropagation()} style={{ background: "linear-gradient(145deg,#0d0d24,#151535)", border: "1px solid #1e1e4a", borderRadius: 20, padding: 20, width: "100%", maxWidth: 360, maxHeight: "85vh", overflowY: "auto", animation: "slideUp .3s ease" }}>
+        <div style={{ fontSize: 15, fontWeight: 800, marginBottom: 16 }}>{event.isNew ? "Nouvel événement" : "Modifier l'événement"}</div>
+
+        <input type="text" value={title} onChange={e => setTitle(e.target.value)} placeholder="Titre" autoFocus
+          style={{ width: "100%", padding: "12px 14px", marginBottom: 12, borderRadius: 12, border: "1px solid #2a2a4a", background: "#0a0a1a", color: "white", fontSize: 14, fontFamily: "'Outfit'", outline: "none", boxSizing: "border-box" }} />
+
+        <input type="date" value={date} onChange={e => setDate(e.target.value)}
+          style={{ width: "100%", padding: "10px 14px", marginBottom: 12, borderRadius: 12, border: "1px solid #2a2a4a", background: "#0a0a1a", color: "white", fontSize: 13, fontFamily: "'Outfit'", outline: "none", boxSizing: "border-box", colorScheme: "dark" }} />
+
+        <div style={{ display: "flex", gap: 8, marginBottom: 12, alignItems: "center" }}>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 10, color: "#555", marginBottom: 4 }}>Début</div>
+            <div style={{ display: "flex", gap: 4 }}>
+              <select value={startH} onChange={e => setStartH(parseInt(e.target.value))} style={selectStyle}>
+                {hourOptions.map(h => <option key={h} value={h}>{String(h).padStart(2,"0")}</option>)}
+              </select>
+              <span style={{ color: "#555", lineHeight: "36px" }}>:</span>
+              <select value={startM} onChange={e => setStartM(parseInt(e.target.value))} style={selectStyle}>
+                {minuteOptions.map(m => <option key={m} value={m}>{String(m).padStart(2,"0")}</option>)}
+              </select>
+            </div>
+          </div>
+          <span style={{ color: "#555", paddingTop: 18 }}>→</span>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 10, color: "#555", marginBottom: 4 }}>Fin</div>
+            <div style={{ display: "flex", gap: 4 }}>
+              <select value={endH} onChange={e => setEndH(parseInt(e.target.value))} style={selectStyle}>
+                {hourOptions.map(h => <option key={h} value={h}>{String(h).padStart(2,"0")}</option>)}
+              </select>
+              <span style={{ color: "#555", lineHeight: "36px" }}>:</span>
+              <select value={endM} onChange={e => setEndM(parseInt(e.target.value))} style={selectStyle}>
+                {minuteOptions.map(m => <option key={m} value={m}>{String(m).padStart(2,"0")}</option>)}
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div style={{ marginBottom: 12 }}>
+          <div style={{ fontSize: 10, color: "#555", marginBottom: 6 }}>Couleur</div>
+          <div style={{ display: "flex", gap: 8 }}>
+            {EVENT_COLORS.map(c => (
+              <div key={c.id} onClick={() => setColor(c.hex)} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, cursor: "pointer" }}>
+                <div style={{ width: 32, height: 32, borderRadius: 10, background: c.hex, border: color === c.hex ? "3px solid #fff" : "3px solid transparent", transition: "all .15s" }} />
+                <div style={{ fontSize: 8, color: color === c.hex ? "#fff" : "#444" }}>{c.label}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Notes (optionnel)"
+          style={{ width: "100%", minHeight: 50, marginBottom: 16, background: "#0a0a1a", border: "1px solid #2a2a4a", borderRadius: 12, color: "#fff", padding: 12, fontSize: 12, fontFamily: "'Outfit'", resize: "vertical", outline: "none", boxSizing: "border-box" }} />
+
+        <div style={{ display: "flex", gap: 8 }}>
+          {!event.isNew && (
+            <button onClick={() => onDelete(event.id)} style={{ padding: "12px 16px", borderRadius: 12, border: "none", background: "rgba(233,69,96,.15)", color: "#e94560", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "'Outfit'" }}>Supprimer</button>
+          )}
+          <div style={{ flex: 1 }} />
+          <button onClick={onClose} style={{ padding: "12px 16px", borderRadius: 12, border: "1px solid #2a2a4a", background: "transparent", color: "#888", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "'Outfit'" }}>Annuler</button>
+          <button onClick={handleSave} style={{ padding: "12px 20px", borderRadius: 12, border: "none", background: "linear-gradient(135deg,#e94560,#c23152)", color: "white", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "'Outfit'", opacity: title.trim() ? 1 : 0.5 }}>{event.isNew ? "Créer" : "Modifier"}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ---- LOGIN SCREEN ----
 function LoginScreen() {
   const [email, setEmail] = useState("");
@@ -504,6 +654,9 @@ export default function App() {
   const [timerRunning, setTimerRunning] = useState(false);
   const [timerPreset, setTimerPreset] = useState(90);
   const timerRef = useRef(null);
+  const [planWeekStart, setPlanWeekStart] = useState(() => getMonday(getToday()));
+  const [planViewMode, setPlanViewMode] = useState("day");
+  const [editingEvent, setEditingEvent] = useState(null);
 
   // Auth listener
   useEffect(() => {
@@ -657,6 +810,29 @@ export default function App() {
     save(nd);
   }, [data, selectedDate, save]);
 
+  const saveEvent = useCallback((event) => {
+    const nd = JSON.parse(JSON.stringify(data));
+    if (!nd.planning) nd.planning = {};
+    const id = event.id || Date.now().toString(36);
+    const { id: _id, isNew: _isNew, ...eventData } = event;
+    nd.planning[id] = eventData;
+    save(nd);
+    setEditingEvent(null);
+  }, [data, save]);
+
+  const deleteEvent = useCallback((eventId) => {
+    const nd = JSON.parse(JSON.stringify(data));
+    if (nd.planning) delete nd.planning[eventId];
+    save(nd);
+    setEditingEvent(null);
+  }, [data, save]);
+
+  const navigatePlanWeek = useCallback((dir) => {
+    const d = new Date(planWeekStart);
+    d.setDate(d.getDate() + dir * 7);
+    setPlanWeekStart(d.toISOString().split("T")[0]);
+  }, [planWeekStart]);
+
   function calcStreak(d) {
     let streak = 0; const today = new Date(getToday());
     for (let i = 0; i < 60; i++) { const dt = new Date(today); dt.setDate(dt.getDate() - i); const k = dt.toISOString().split("T")[0]; const dd = d.days[k]; if (!dd) break; const h = dd.habits ? Object.values(dd.habits).filter(Boolean).length : 0; const m = dd.meals ? Object.values(dd.meals).filter(Boolean).length : 0; if (h + m >= 8) streak++; else break; }
@@ -701,6 +877,7 @@ export default function App() {
     { id: "dashboard", label: "🏠", name: "Home" },
     { id: "habits", label: "✅", name: "Habitudes" },
     { id: "sport", label: "💪", name: "Sport" },
+    { id: "planning", label: "📅", name: "Plan" },
     { id: "food", label: "🍽️", name: "Repas" },
     { id: "supps", label: "💊", name: "Suppl." },
     { id: "health", label: "🩺", name: "Santé" },
@@ -736,6 +913,8 @@ export default function App() {
         input[type=number],input[type=text]{background:#0d0d24;border:1px solid #2a2a4a;border-radius:10px;color:white;padding:10px 12px;font-family:'Space Mono';font-size:14px;width:80px;text-align:center;outline:none;-webkit-appearance:none}
         input:focus,textarea:focus{border-color:#e94560!important}
         textarea{-webkit-appearance:none;font-family:'Outfit',sans-serif}
+        select{-webkit-appearance:none;appearance:none;color-scheme:dark}
+        input[type=date]{color-scheme:dark}
         .recharts-text{fill:#888!important;font-size:10px!important}
         @media(min-width:769px){
           .app-root{max-width:1200px!important;padding-bottom:0!important;display:flex!important;flex-direction:row!important}
@@ -788,6 +967,9 @@ export default function App() {
       {/* REST TIMER FLOATING */}
       <RestTimer seconds={timerSeconds} running={timerRunning} preset={timerPreset}
         onStop={() => setTimerRunning(false)} onDismiss={() => { setTimerSeconds(0); setTimerRunning(false); }} />
+
+      {/* EVENT MODAL */}
+      {editingEvent && <EventModal event={editingEvent} onSave={saveEvent} onDelete={deleteEvent} onClose={() => setEditingEvent(null)} />}
 
       {/* MAIN CONTENT COLUMN */}
       <div className="main-col">
@@ -850,6 +1032,189 @@ export default function App() {
         </div>)}
 
         {tab === "habits" && (<div className="card"><div style={{ fontSize: 13, fontWeight: 700, marginBottom: 10 }}>✅ Habitudes du jour</div>{HABITS.map(h => { const done = dayData.habits?.[h.id] || false; return (<div key={h.id} className={`ci ${done ? "done" : ""}`} onClick={() => toggleItem("habits", h.id, h.xp)}><div className="cb">{done ? "✓" : ""}</div><span style={{ fontSize: 18 }}>{h.emoji}</span><span style={{ flex: 1, fontSize: 13, fontWeight: done ? 600 : 400 }}>{h.label}</span><span className="xp">+{h.xp}</span></div>); })}</div>)}
+
+        {tab === "planning" && (() => {
+          const today = getToday();
+          const weekDates = getWeekDates(planWeekStart);
+          const isCurrentWeek = planWeekStart === getMonday(today);
+          const dayNames = ["Lun","Mar","Mer","Jeu","Ven","Sam","Dim"];
+          const isDesktop = typeof window !== "undefined" && window.innerWidth >= 769;
+          const effectiveView = isDesktop ? "week" : planViewMode;
+
+          const openNewEvent = (dateStr, hour) => {
+            setEditingEvent({ isNew: true, date: dateStr, startH: hour, startM: 0, endH: Math.min(hour + 1, 23), endM: 0, color: EVENT_COLORS[0].hex, title: "", notes: "" });
+          };
+
+          const renderEventBlock = (evt, isWeekView) => {
+            const { top, height } = getEventPosition(evt);
+            return (
+              <div key={evt.id} onClick={e => { e.stopPropagation(); setEditingEvent({ ...evt, isNew: false }); }}
+                style={{ position: "absolute", top, left: isWeekView ? 2 : 48, right: isWeekView ? 2 : 8, height,
+                  background: `${evt.color}22`, borderLeft: `${isWeekView ? 3 : 4}px solid ${evt.color}`,
+                  borderRadius: isWeekView ? 6 : 8, padding: isWeekView ? "2px 4px" : "6px 10px",
+                  cursor: "pointer", overflow: "hidden", zIndex: 10 }}>
+                <div style={{ fontSize: isWeekView ? 9 : 12, fontWeight: 700, color: evt.color, lineHeight: 1.2 }}>{evt.title}</div>
+                {height > (isWeekView ? 30 : 24) && (
+                  <div style={{ fontSize: isWeekView ? 8 : 10, color: "#888" }}>
+                    {evt.startH}:{String(evt.startM).padStart(2,"0")} — {evt.endH}:{String(evt.endM).padStart(2,"0")}
+                  </div>
+                )}
+                {!isWeekView && evt.notes && height > 50 && <div style={{ fontSize: 9, color: "#555", marginTop: 2 }}>{evt.notes}</div>}
+              </div>
+            );
+          };
+
+          const renderTimeLine = (leftOffset) => {
+            const now = new Date();
+            const nowH = now.getHours(), nowM = now.getMinutes();
+            if (nowH < 6 || nowH > 23) return null;
+            const topPx = ((nowH - 6) * 60 + nowM) / 60 * HOUR_HEIGHT;
+            return (
+              <div style={{ position: "absolute", top: topPx, left: leftOffset, right: 0, height: 2, background: "#e94560", zIndex: 20, pointerEvents: "none" }}>
+                <div style={{ width: 8, height: 8, borderRadius: 4, background: "#e94560", position: "absolute", left: -4, top: -3 }} />
+              </div>
+            );
+          };
+
+          return (
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+
+              {/* WEEK NAVIGATION */}
+              <div className="card" style={{ padding: 12 }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <button className="na" onClick={() => navigatePlanWeek(-1)}>←</button>
+                  <div style={{ textAlign: "center", fontSize: 13, fontWeight: 700 }}>{formatWeekRange(weekDates)}</div>
+                  <button className="na" onClick={() => navigatePlanWeek(1)}>→</button>
+                </div>
+                <div style={{ display: "flex", gap: 6, marginTop: 8, justifyContent: "center" }}>
+                  {!isCurrentWeek && (
+                    <div onClick={() => setPlanWeekStart(getMonday(today))}
+                      style={{ padding: "4px 12px", borderRadius: 10, fontSize: 11, fontWeight: 600, cursor: "pointer", background: "rgba(233,69,96,.15)", color: "#e94560" }}>
+                      Aujourd'hui
+                    </div>
+                  )}
+                  {!isDesktop && (
+                    <div onClick={() => setPlanViewMode(planViewMode === "day" ? "week" : "day")}
+                      style={{ padding: "4px 12px", borderRadius: 10, fontSize: 11, fontWeight: 600, cursor: "pointer", background: "rgba(74,144,217,.15)", color: "#4a90d9" }}>
+                      {planViewMode === "day" ? "Vue semaine" : "Vue jour"}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* DAY SELECTOR (day view) */}
+              {effectiveView === "day" && (
+                <div style={{ display: "flex", gap: 4, padding: "0 4px" }}>
+                  {weekDates.map((dateStr, i) => {
+                    const isToday = dateStr === today;
+                    const isSelected = dateStr === selectedDate;
+                    const dayNum = new Date(dateStr).getDate();
+                    return (
+                      <div key={dateStr} onClick={() => setSelectedDate(dateStr)}
+                        style={{ flex: 1, textAlign: "center", padding: "8px 2px", borderRadius: 12, cursor: "pointer",
+                          background: isSelected ? "rgba(233,69,96,.15)" : "transparent",
+                          border: `1px solid ${isSelected ? "#e94560" : isToday ? "rgba(76,175,80,.4)" : "transparent"}` }}>
+                        <div style={{ fontSize: 9, color: isSelected ? "#e94560" : "#555", fontWeight: 700 }}>{dayNames[i]}</div>
+                        <div style={{ fontSize: 14, fontWeight: 700, color: isToday ? "#4caf50" : isSelected ? "#fff" : "#888" }}>{dayNum}</div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* WEEK GRID */}
+              {effectiveView === "week" && (
+                <div className="card" style={{ padding: 0, overflow: "hidden" }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "40px repeat(7, 1fr)", borderBottom: "1px solid #1e1e4a" }}>
+                    <div />
+                    {weekDates.map((dateStr, i) => {
+                      const isToday = dateStr === today;
+                      const dayNum = new Date(dateStr).getDate();
+                      return (
+                        <div key={dateStr} style={{ textAlign: "center", padding: "8px 2px", borderLeft: "1px solid #1a1a2e", background: isToday ? "rgba(76,175,80,.06)" : "transparent" }}>
+                          <div style={{ fontSize: 9, color: isToday ? "#4caf50" : "#555", fontWeight: 700 }}>{dayNames[i]}</div>
+                          <div style={{ fontSize: 13, fontWeight: 700, color: isToday ? "#4caf50" : "#fff",
+                            width: 24, height: 24, borderRadius: 12, background: isToday ? "rgba(76,175,80,.2)" : "transparent",
+                            display: "inline-flex", alignItems: "center", justifyContent: "center" }}>{dayNum}</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div style={{ overflowY: "auto", maxHeight: "60vh", position: "relative" }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "40px repeat(7, 1fr)", minHeight: PLANNING_HOURS.length * HOUR_HEIGHT }}>
+                      {PLANNING_HOURS.map(h => (
+                        <div key={h} style={{ gridColumn: 1, height: HOUR_HEIGHT, borderTop: "1px solid #111",
+                          display: "flex", alignItems: "flex-start", justifyContent: "center", paddingTop: 2,
+                          fontSize: 9, color: "#444", fontFamily: "'Space Mono'" }}>{h}h</div>
+                      ))}
+                      {weekDates.map((dateStr, colIdx) => (
+                        <div key={dateStr} style={{ gridColumn: colIdx + 2, gridRow: "1 / -1", position: "relative",
+                          borderLeft: "1px solid #1a1a2e", background: dateStr === today ? "rgba(76,175,80,.03)" : "transparent" }}>
+                          {PLANNING_HOURS.map(h => (
+                            <div key={h} onClick={() => openNewEvent(dateStr, h)}
+                              style={{ height: HOUR_HEIGHT, borderTop: "1px solid #111", cursor: "pointer" }} />
+                          ))}
+                          {getEventsForDate(data.planning, dateStr).map(evt => renderEventBlock(evt, true))}
+                        </div>
+                      ))}
+                    </div>
+                    {isCurrentWeek && (() => {
+                      const todayCol = weekDates.indexOf(today);
+                      if (todayCol === -1) return null;
+                      const now = new Date();
+                      const nowH = now.getHours(), nowM = now.getMinutes();
+                      if (nowH < 6 || nowH > 23) return null;
+                      const topPx = ((nowH - 6) * 60 + nowM) / 60 * HOUR_HEIGHT;
+                      return (
+                        <div style={{ position: "absolute", top: topPx, left: `calc(40px + ${todayCol} * (100% - 40px) / 7)`,
+                          width: `calc((100% - 40px) / 7)`, height: 2, background: "#e94560", zIndex: 20, pointerEvents: "none" }}>
+                          <div style={{ width: 8, height: 8, borderRadius: 4, background: "#e94560", position: "absolute", left: -4, top: -3 }} />
+                        </div>
+                      );
+                    })()}
+                  </div>
+                </div>
+              )}
+
+              {/* DAY GRID */}
+              {effectiveView === "day" && (
+                <div className="card" style={{ padding: 0, overflow: "hidden" }}>
+                  <div style={{ padding: "12px 16px", borderBottom: "1px solid #1e1e4a", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                    <button className="na" style={{ width: 32, height: 32 }} onClick={() => { const d = new Date(selectedDate); d.setDate(d.getDate() - 1); setSelectedDate(d.toISOString().split("T")[0]); }}>←</button>
+                    <div style={{ textAlign: "center" }}>
+                      <div style={{ fontSize: 14, fontWeight: 700 }}>
+                        {dayNames[(new Date(selectedDate).getDay() + 6) % 7]} {new Date(selectedDate).getDate()} {["Jan","Fév","Mar","Avr","Mai","Jun","Jul","Aoû","Sep","Oct","Nov","Déc"][new Date(selectedDate).getMonth()]}
+                      </div>
+                      {selectedDate === today && <div style={{ fontSize: 9, color: "#4caf50", fontWeight: 700 }}>AUJOURD'HUI</div>}
+                    </div>
+                    <button className="na" style={{ width: 32, height: 32 }} onClick={() => { const d = new Date(selectedDate); d.setDate(d.getDate() + 1); setSelectedDate(d.toISOString().split("T")[0]); }}>→</button>
+                  </div>
+                  <div style={{ position: "relative", overflowY: "auto", maxHeight: "65vh" }}>
+                    {PLANNING_HOURS.map(h => (
+                      <div key={h} onClick={() => openNewEvent(selectedDate, h)}
+                        style={{ display: "flex", height: HOUR_HEIGHT, borderTop: "1px solid #111", cursor: "pointer" }}>
+                        <div style={{ width: 44, display: "flex", alignItems: "flex-start", justifyContent: "center", paddingTop: 4,
+                          fontSize: 10, color: "#444", fontFamily: "'Space Mono'" }}>{h}:00</div>
+                        <div style={{ flex: 1 }} />
+                      </div>
+                    ))}
+                    {getEventsForDate(data.planning, selectedDate).map(evt => renderEventBlock(evt, false))}
+                    {selectedDate === today && renderTimeLine(44)}
+                  </div>
+                </div>
+              )}
+
+              {/* FAB (mobile day view) */}
+              {effectiveView === "day" && (
+                <div onClick={() => { const h = Math.max(6, Math.min(22, new Date().getHours())); openNewEvent(selectedDate, h); }}
+                  style={{ position: "fixed", bottom: 100, right: 20, width: 48, height: 48, borderRadius: 24,
+                    background: "linear-gradient(135deg,#e94560,#c23152)", display: "flex", alignItems: "center", justifyContent: "center",
+                    fontSize: 24, color: "#fff", cursor: "pointer", zIndex: 90, boxShadow: "0 4px 20px rgba(233,69,96,.4)", fontWeight: 300 }}>+</div>
+              )}
+
+            </div>
+          );
+        })()}
 
         {tab === "food" && (<div className="card"><div style={{ fontSize: 13, fontWeight: 700, marginBottom: 10 }}>🍽️ Plan sèche — 2 130 kcal</div>{MEALS.map(m => { const done = dayData.meals?.[m.id] || false; return (<div key={m.id} className={`ci ${done ? "done" : ""}`} onClick={() => toggleItem("meals", m.id, m.xp)}><div className="cb">{done ? "✓" : ""}</div><span style={{ fontSize: 18 }}>{m.emoji}</span><span style={{ flex: 1, fontSize: 13 }}>{m.label}</span><span className="xp">+{m.xp}</span></div>); })}<div style={{ marginTop: 12, padding: 10, background: "rgba(233,69,96,.06)", borderRadius: 12, fontSize: 12, textAlign: "center" }}>Budget : <span style={{ color: "#ffeb3b", fontWeight: 700, fontFamily: "'Space Mono'" }}>13,27 - 14,21€/jour</span></div></div>)}
 
