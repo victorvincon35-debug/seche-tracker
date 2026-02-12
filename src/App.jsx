@@ -428,7 +428,7 @@ export default function App() {
   ];
 
   return (
-    <div style={{ fontFamily: "'Outfit',sans-serif", background: "#0a0a1a", minHeight: "100vh", color: "white", maxWidth: 480, margin: "0 auto", paddingBottom: 80, position: "relative", WebkitOverflowScrolling: "touch" }}>
+    <div className="app-root" style={{ fontFamily: "'Outfit',sans-serif", background: "#0a0a1a", minHeight: "100vh", color: "white", maxWidth: 480, margin: "0 auto", paddingBottom: 80, position: "relative", WebkitOverflowScrolling: "touch" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Space+Mono:wght@400;700&display=swap');
         *{box-sizing:border-box;margin:0;padding:0}body{background:#0a0a1a}
@@ -454,6 +454,31 @@ export default function App() {
         input[type=number],input[type=text]{background:#0d0d24;border:1px solid #2a2a4a;border-radius:10px;color:white;padding:10px 12px;font-family:'Space Mono';font-size:14px;width:80px;text-align:center;outline:none;-webkit-appearance:none}
         input:focus{border-color:#e94560!important}
         .recharts-text{fill:#888!important;font-size:10px!important}
+        @media(min-width:769px){
+          .app-root{max-width:1200px!important;padding-bottom:0!important;display:flex!important;flex-direction:row!important}
+          .main-col{flex:1!important;min-width:0!important;display:flex!important;flex-direction:column!important;overflow-y:auto!important;height:100vh!important}
+          .app-header{padding:16px 32px 20px!important}
+          .nav-outer{position:sticky!important;top:0!important;bottom:auto!important;left:auto!important;right:auto!important;width:220px!important;min-width:220px!important;height:100vh!important;background:#0a0a1a!important;padding:24px 12px!important;border-right:1px solid #1e1e4a!important;overflow-y:auto!important;order:-1!important;z-index:50!important}
+          .nav-inner{flex-direction:column!important;gap:4px!important;max-width:none!important;background:transparent!important;border:none!important;border-radius:0!important;padding:0!important}
+          .nav-inner .tb{flex-direction:row!important;justify-content:flex-start!important;padding:12px 14px!important;font-size:13px!important;gap:10px!important;border-radius:12px!important}
+          .nav-inner .tb span:first-child{font-size:18px!important}
+          .nav-inner .tb.active{background:rgba(233,69,96,.15)!important}
+          .nav-inner .tb:hover:not(.active){background:rgba(255,255,255,.04)!important;color:#999!important}
+          .content-area{flex:1!important;padding:0 32px 32px!important;min-width:0!important}
+          .tab-grid{display:grid!important;grid-template-columns:repeat(2,1fr)!important;gap:16px!important}
+          .tab-grid>.card:first-child{grid-column:1/-1}
+          .card{padding:24px!important;border-radius:22px!important}
+          .card:hover{border-color:#2a2a5a!important;box-shadow:0 4px 24px rgba(233,69,96,.06)!important}
+          .ci{padding:16px!important}
+          .ci:hover{background:rgba(255,255,255,.03)!important;border-color:rgba(255,255,255,.06)!important}
+          .ci:active{transform:scale(.995)!important}
+          .na:hover{border-color:#e94560!important;background:rgba(233,69,96,.08)!important}
+          .xp{font-size:11px!important;padding:3px 10px!important}
+        }
+        @media(min-width:1100px){
+          .tab-grid{grid-template-columns:repeat(3,1fr)!important}
+          .tab-grid>.card:first-child{grid-column:1/-1}
+        }
       `}</style>
 
       {/* CITY UNLOCK */}
@@ -477,8 +502,11 @@ export default function App() {
         </div>
       )}
 
+      {/* MAIN CONTENT COLUMN */}
+      <div className="main-col">
+
       {/* HEADER */}
-      <div style={{ background: "linear-gradient(180deg,#e94560 0%,#0a0a1a 100%)", padding: "max(env(safe-area-inset-top), 16px) 16px 24px" }}>
+      <div className="app-header" style={{ background: "linear-gradient(180deg,#e94560 0%,#0a0a1a 100%)", padding: "max(env(safe-area-inset-top), 16px) 16px 24px" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
           <div>
             <div style={{ fontSize: 10, color: "rgba(255,255,255,.5)", fontFamily: "'Space Mono'", letterSpacing: 3, textTransform: "uppercase" }}>Destination</div>
@@ -524,9 +552,9 @@ export default function App() {
         ))}
       </div>
 
-      <div style={{ padding: "0 16px" }}>
+      <div className="content-area" style={{ padding: "0 16px" }}>
 
-        {tab === "dashboard" && (<div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        {tab === "dashboard" && (<div className="tab-grid" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           <div className="card" style={{ padding: 12 }}><div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>🗺️ Paris → Rome</div><MapSVG xp={data.totalXP} /></div>
           <div className="card" style={{ textAlign: "center", padding: "16px 20px" }}><div style={{ fontSize: 13, fontWeight: 700, marginBottom: 4 }}>👤 Ma transformation</div><div style={{ fontSize: 10, color: "#888", marginBottom: 8 }}>{avatarStage.label}</div><div style={{ animation: "breathe 3s ease infinite" }}><AvatarSVG stage={avatarStage} size={140} /></div><div style={{ display: "flex", justifyContent: "center", gap: 4, marginTop: 8 }}>{AVATAR_STAGES.map((s, i) => (<div key={i} style={{ width: 8, height: 8, borderRadius: 4, background: data.totalXP >= s.min ? "#e94560" : "#1e1e4a", transition: "all .3s" }} />))}</div></div>
           {(() => { const nw = WEEKLY_REWARDS.find(r => !isWeekComplete(data, r.week)); const na = ACHIEVEMENT_REWARDS.find(r => !r.check(data)); const next = nw || na; if (!next) return null; return (<div className="card" style={{ padding: 14, cursor: "pointer", border: "1px solid #2a1a4a" }} onClick={() => setTab("rewards")}><div style={{ display: "flex", alignItems: "center", gap: 12 }}><div style={{ width: 44, height: 44, borderRadius: 12, background: "#111", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22 }}>🔒</div><div style={{ flex: 1 }}><div style={{ fontSize: 11, color: "#ffeb3b", fontWeight: 700 }}>Prochain cadeau</div><div style={{ fontSize: 12, color: "#888", marginTop: 2 }}>{next.condition || `Semaine ${next.week} — Score ≥ 70%`}</div></div><div style={{ fontSize: 18, color: "#444" }}>→</div></div></div>); })()}
@@ -546,7 +574,7 @@ export default function App() {
           <div className="card"><div style={{ fontSize: 13, fontWeight: 700, marginBottom: 10 }}>🌿 Naturopathie — S{getWeekNumber(selectedDate)}</div>{NATURO.map((n, i) => { const val = weekData.naturo?.[n.id] || ""; return (<div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 0", borderBottom: "1px solid #0d0d24" }}><div style={{ flex: 1 }}><div style={{ fontSize: 12 }}>{n.label}</div><div style={{ fontSize: 9, color: "#4caf50" }}>✓ {n.good}</div></div><input type="text" value={val} placeholder="..." onChange={e => setNaturo(n.id, e.target.value)} style={{ background: "#0a0a1a", border: "1px solid #1e1e4a", borderRadius: 8, color: "white", padding: "6px 8px", fontSize: 11, width: 110, fontFamily: "'Outfit'" }} /></div>); })}</div>
         </div>)}
 
-        {tab === "rewards" && (<div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+        {tab === "rewards" && (<div className="tab-grid" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           <div className="card" style={{ textAlign: "center", padding: 20, background: "linear-gradient(145deg,#0d0d24,#1a0a2e,#0d0d24)", border: "1px solid #2a1a4a" }}>
             <div style={{ fontSize: 11, color: "#ffeb3b", fontWeight: 700, letterSpacing: 2, fontFamily: "'Space Mono'", marginBottom: 8 }}>🎁 CADEAUX ITALIE 🇮🇹</div>
             <div style={{ fontSize: 42, fontWeight: 900, background: "linear-gradient(135deg,#e94560,#ffeb3b)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>{unlockedCount}<span style={{ fontSize: 20 }}>/{totalRewards}</span></div>
@@ -557,7 +585,7 @@ export default function App() {
           <div><div style={{ fontSize: 14, fontWeight: 800, marginBottom: 10 }}>🏆 Achievements</div><div style={{ display: "flex", flexDirection: "column", gap: 8 }}>{ACHIEVEMENT_REWARDS.map(r => { const unlocked = r.check(data); const isNew = unlocked && !(data.seenRewards || []).includes(r.id); return (<RewardCard key={r.id} reward={r} unlocked={unlocked} isNew={isNew} onClick={() => { if (isNew) markRewardSeen(r.id); }} />); })}</div></div>
         </div>)}
 
-        {tab === "stats" && (<div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        {tab === "stats" && (<div className="tab-grid" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           <div className="card"><div style={{ fontSize: 13, fontWeight: 700, marginBottom: 12 }}>📉 Poids</div>{getWeightChartData().length > 1 ? (<ResponsiveContainer width="100%" height={180}><AreaChart data={getWeightChartData()}><defs><linearGradient id="wG" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#e94560" stopOpacity={.3} /><stop offset="100%" stopColor="#e94560" stopOpacity={0} /></linearGradient></defs><XAxis dataKey="name" tick={{ fill: "#555", fontSize: 10 }} axisLine={{ stroke: "#1e1e4a" }} /><YAxis domain={["dataMin-1", "dataMax+1"]} tick={{ fill: "#555", fontSize: 10 }} axisLine={{ stroke: "#1e1e4a" }} /><Tooltip contentStyle={{ background: "#0d0d24", border: "1px solid #2a2a5a", borderRadius: 8, fontSize: 12, color: "#fff" }} /><Area type="monotone" dataKey="poids" stroke="#e94560" strokeWidth={2} fill="url(#wG)" dot={{ fill: "#e94560", r: 4 }} /></AreaChart></ResponsiveContainer>) : (<div style={{ color: "#444", fontSize: 12, textAlign: "center", padding: 30 }}>2+ semaines → graph</div>)}</div>
           <div className="card"><div style={{ fontSize: 13, fontWeight: 700, marginBottom: 12 }}>🎯 Radar santé</div>{getSymptomRadarData().some(d => d.value > 0) ? (<ResponsiveContainer width="100%" height={220}><RadarChart data={getSymptomRadarData()}><PolarGrid stroke="#1e1e4a" /><PolarAngleAxis dataKey="subject" tick={{ fill: "#888", fontSize: 9 }} /><PolarRadiusAxis domain={[0, 10]} tick={false} axisLine={false} /><Radar name="Score" dataKey="value" stroke="#e94560" fill="#e94560" fillOpacity={.2} strokeWidth={2} dot={{ fill: "#e94560", r: 3 }} /></RadarChart></ResponsiveContainer>) : (<div style={{ color: "#444", fontSize: 12, textAlign: "center", padding: 30 }}>Remplis tes symptômes</div>)}</div>
           <div className="card"><div style={{ fontSize: 13, fontWeight: 700, marginBottom: 12 }}>🌡️ Températures</div>{getTempChartData().length > 1 ? (<><ResponsiveContainer width="100%" height={180}><LineChart data={getTempChartData()}><XAxis dataKey="name" tick={{ fill: "#555", fontSize: 9 }} axisLine={{ stroke: "#1e1e4a" }} /><YAxis domain={[36, 37.5]} tick={{ fill: "#555", fontSize: 10 }} axisLine={{ stroke: "#1e1e4a" }} /><Tooltip contentStyle={{ background: "#0d0d24", border: "1px solid #2a2a5a", borderRadius: 8, fontSize: 11, color: "#fff" }} /><Line type="monotone" dataKey="reveil" stroke="#4caf50" strokeWidth={2} dot={{ r: 2 }} connectNulls /><Line type="monotone" dataKey="apres" stroke="#ff9800" strokeWidth={2} dot={{ r: 2 }} connectNulls /><Line type="monotone" dataKey="aprem" stroke="#e94560" strokeWidth={2} dot={{ r: 2 }} connectNulls /></LineChart></ResponsiveContainer><div style={{ display: "flex", justifyContent: "center", gap: 12, marginTop: 8 }}>{[{ c: "#4caf50", l: "Réveil" }, { c: "#ff9800", l: "Repas" }, { c: "#e94560", l: "Aprem" }].map((x, i) => (<div key={i} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 10, color: "#888" }}><div style={{ width: 8, height: 8, borderRadius: 4, background: x.c }} />{x.l}</div>))}</div></>) : (<div style={{ color: "#444", fontSize: 12, textAlign: "center", padding: 30 }}>Quelques jours → courbes</div>)}</div>
@@ -569,9 +597,11 @@ export default function App() {
         </div>)}
       </div>
 
+      </div>{/* END MAIN CONTENT COLUMN */}
+
       {/* BOTTOM NAV */}
-      <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, background: "linear-gradient(0deg,#0a0a1a 60%,transparent)", padding: "20px 4px max(env(safe-area-inset-bottom, 6px), 6px)", zIndex: 100 }}>
-        <div style={{ maxWidth: 480, margin: "0 auto", display: "flex", gap: 1, background: "#0a0a18", borderRadius: 14, padding: 3, border: "1px solid #1a1a3a" }}>
+      <div className="nav-outer" style={{ position: "fixed", bottom: 0, left: 0, right: 0, background: "linear-gradient(0deg,#0a0a1a 60%,transparent)", padding: "20px 4px max(env(safe-area-inset-bottom, 6px), 6px)", zIndex: 100 }}>
+        <div className="nav-inner" style={{ maxWidth: 480, margin: "0 auto", display: "flex", gap: 1, background: "#0a0a18", borderRadius: 14, padding: 3, border: "1px solid #1a1a3a" }}>
           {tabs.map(t => (
             <button key={t.id} className={`tb ${tab === t.id ? "active" : ""}`} onClick={() => setTab(t.id)}>
               <span style={{ fontSize: 15 }}>{t.label}</span>
