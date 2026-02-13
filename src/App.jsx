@@ -3,7 +3,7 @@ import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, RadarChart
 import { supabase, storage, syncOnLoad, debouncedPush } from "./supabase.js";
 
 const STORAGE_KEY = "seche-tracker-v5";
-const START_DATE = "2026-02-17";
+const START_DATE = "2026-02-23";
 const TOTAL_DAYS = 30;
 
 const CITIES = [
@@ -82,18 +82,50 @@ const MEALS_SECHE = [
 const STAGE_MEALS = { 1: MEALS_REGAIN, 2: MEALS_SECHE, 3: MEALS_REGAIN, 4: MEALS_SECHE };
 function getMealsForStage(stageNum) { return STAGE_MEALS[stageNum] || MEALS_SECHE; }
 
-const SUPPS = [
-  { id: "s_collagene", label: "Collagène 50g", emoji: "💪" },
-  { id: "s_creatine", label: "Créatine 5g", emoji: "⚡" },
-  { id: "s_magnesium", label: "Magnésium 3×300mg", emoji: "🧲" },
-  { id: "s_d3", label: "D3 5000 UI", emoji: "☀️" },
-  { id: "s_k2", label: "K2 MK7 300µg", emoji: "🦴" },
-  { id: "s_b", label: "Complexe B", emoji: "🅱️" },
-  { id: "s_taurine", label: "Taurine 2-3g", emoji: "🌙" },
-  { id: "s_zinc", label: "Zinc 20mg", emoji: "🔩" },
-  { id: "s_vite", label: "Vit E 300 UI", emoji: "🌿" },
-  { id: "s_calcium", label: "Calcium 1000mg", emoji: "🦷" },
+const SUPP_TIMING_GROUPS = [
+  { id: "reveil", label: "RÉVEIL (à jeun)", emoji: "🌅", color: "#ff9800" },
+  { id: "30min", label: "30 MIN APRÈS LE RÉVEIL (jus d'orange, PAS de café/thé)", emoji: "☀️", color: "#ffeb3b" },
+  { id: "midi", label: "MIDI (repas avec gras : bœuf + œufs + beurre)", emoji: "🌞", color: "#ffc107" },
+  { id: "post_training", label: "POST-ENTRAÎNEMENT", emoji: "💪", color: "#e94560" },
+  { id: "collation", label: "COLLATION (après-midi)", emoji: "🍎", color: "#4caf50" },
+  { id: "diner", label: "DÎNER", emoji: "🌙", color: "#42a5f5" },
+  { id: "avant_dormir", label: "AVANT DORMIR", emoji: "😴", color: "#ab47bc" },
 ];
+
+const SUPPS_DETAILED = [
+  { id: "s_collagene", label: "Collagène Peptan® — 25g (prise 1/2)", emoji: "💊", timing: "reveil", brand: "AM Nutrition 1kg", dosage: "25g", price: 75, info: "Tendons, ligaments, articulations. Peptan® 2000 daltons = absorption max. À jeun pour éviter compétition avec d'autres protéines. La glycine aide aussi au sommeil (prise du soir)." },
+  { id: "s_b", label: "Thiavite B-Complex", emoji: "💊", timing: "30min", brand: "Objective Nutrients", dosage: "1-3 gélules", price: 30, info: "Énergie, métabolisme, système nerveux. TTFD = B1 ultra-biodisponible. Éviter café/thé 1h avant ou 2h après." },
+  { id: "s_creatine", label: "Créatine Creapure® 5g", emoji: "💊", timing: "30min", brand: "Nutripure 1kg (57,90€)", dosage: "5g", price: 8.70, info: "Force et récupération. Creapure® = pureté 99,95%. Dans le jus d'orange : l'insuline aide le transport." },
+  { id: "s_mag_1", label: "Magnésium bisglycinate (1/3)", emoji: "💊", timing: "30min", brand: "Dynveo TRAACS®", dosage: "300mg", price: 30, info: "Anti-stress, sommeil, récupération. Bisglycinate TRAACS® = 4x mieux absorbé que le marin. Fractionné en 3 prises." },
+  { id: "s_d3", label: "Vitamine D3 5000 UI", emoji: "💊", timing: "midi", brand: "Dynveo végétale", dosage: "5000 UI", price: 7.45, info: "Immunité, os, hormones. Végétale micro-encapsulée. Avec gras pour absorption max." },
+  { id: "s_k2", label: "K2 MK7 300µg", emoji: "💊", timing: "midi", brand: "Dynveo", dosage: "300 µg", price: 30, info: "Fixe le calcium dans les os, pas les artères. Synergie obligatoire avec D3." },
+  { id: "s_vite", label: "Vitamine E 300 UI", emoji: "💊", timing: "midi", brand: "Tocophérol naturel", dosage: "300 UI", price: 7.50, info: "Antioxydant, protège les muscles. Tocophérol naturel = 2x mieux retenu que synthétique." },
+  { id: "s_calcium_1", label: "Calcium coquille d'œuf (1/2)", emoji: "🥚", timing: "midi", brand: "DIY", dosage: "500mg + vinaigre cidre", price: 2, info: "Os, contraction musculaire. Le vinaigre convertit le carbonate en forme biodisponible. Avec D3+K2 = synergie." },
+  { id: "s_mag_2", label: "Magnésium bisglycinate (2/3)", emoji: "💊", timing: "midi", brand: "Dynveo TRAACS®", dosage: "300mg", price: 0, info: "Deuxième tiers de la dose journalière. Réparti pour meilleure tolérance digestive." },
+  { id: "s_whey_1", label: "Whey Native Isolate (1/2)", emoji: "💊", timing: "post_training", brand: "Dynveo 1kg (44,90€)", dosage: "40g shake", price: 112, info: "95% protéines natives. Immunoglobulines + lactoferrine préservées. Fenêtre post-training = synthèse protéique max.", secheOnly: true },
+  { id: "s_whey_2", label: "Whey Native Isolate (2/2)", emoji: "💊", timing: "collation", brand: "Dynveo", dosage: "40g shake", price: 0, info: "Deuxième shake en collation. Maintien de l'apport protéique en sèche.", secheOnly: true },
+  { id: "s_calcium_2", label: "Calcium coquille d'œuf (2/2)", emoji: "🥚", timing: "collation", brand: "DIY", dosage: "500mg + vinaigre cidre", price: 0, info: "Deuxième moitié. Doses séparées pour meilleure absorption." },
+  { id: "s_zinc", label: "Zinc bisglycinate 20mg", emoji: "💊", timing: "diner", brand: "Dynveo TRAACS®", dosage: "20mg", price: 5.45, info: "Testostérone, immunité, synthèse protéique. LOIN du calcium (midi) = pas de compétition d'absorption." },
+  { id: "s_mag_3", label: "Magnésium bisglycinate (3/3)", emoji: "💊", timing: "diner", brand: "Dynveo TRAACS®", dosage: "300mg", price: 0, info: "Prise du soir : active les récepteurs GABA, prépare au sommeil. Synergie avec collagène + taurine." },
+  { id: "s_collagene_2", label: "Collagène Peptan® — 25g (prise 2/2)", emoji: "💊", timing: "avant_dormir", brand: "AM Nutrition 1kg", dosage: "25g", price: 0, info: "Deuxième prise. La glycine du collagène le soir aide au sommeil. Synergie avec magnésium + taurine." },
+  { id: "s_taurine", label: "Taurine 2-3g", emoji: "💊", timing: "avant_dormir", brand: "Nutrimuscle poudre", dosage: "2-3g", price: 2.50, info: "Agoniste GABA-A, calme le système nerveux. Synergie avec le magnésium et le collagène du soir." },
+];
+
+const SUPPS = SUPPS_DETAILED;
+
+function getSuppsForStage(stageNum) {
+  const isRegain = stageNum === 1 || stageNum === 3;
+  return isRegain ? SUPPS_DETAILED.filter(s => !s.secheOnly) : SUPPS_DETAILED;
+}
+
+function getSuppsGrouped(stageNum) {
+  const applicable = getSuppsForStage(stageNum);
+  return SUPP_TIMING_GROUPS.map(g => ({ ...g, supps: applicable.filter(s => s.timing === g.id) })).filter(g => g.supps.length > 0);
+}
+
+function getSuppsBudget(stageNum) {
+  return getSuppsForStage(stageNum).reduce((sum, s) => sum + (s.price || 0), 0);
+}
 
 const ABS_CIRCUIT = [
   { id: "abs_deadbug", label: "Dead bug", emoji: "🪲" },
@@ -369,22 +401,181 @@ function formatWeekRange(weekDates) {
   return `${first.getDate()} ${months[first.getMonth()]} — ${last.getDate()} ${months[last.getMonth()]}`;
 }
 
-const defaultData = () => ({ days: {}, weeks: {}, weight: {}, planning: {}, totalXP: 0, bestStreak: 0, seenRewards: [], nutrition: { currentStage: 1, stageStartDate: null, cycleComplete: false } });
+const defaultData = () => ({ days: {}, weeks: {}, weight: {}, planning: {}, totalXP: 0, bestStreak: 0, seenRewards: [], nutrition: { currentStage: 1, stageStartDate: null, cycleComplete: false }, reappro: {}, _migrations: {} });
 
-function getCurrentNutritionStage(d) {
-  if (!d.nutrition) return { stage: 1, dayInStage: 1, stageInfo: NUTRITION_STAGES[0], complete: false, notStarted: false };
-  const { currentStage, stageStartDate, cycleComplete } = d.nutrition;
-  if (cycleComplete) return { stage: 4, dayInStage: STAGE_DAYS, stageInfo: NUTRITION_STAGES[3], complete: true, notStarted: false };
-  const stageIdx = Math.max(0, Math.min(3, currentStage - 1));
-  const stageInfo = NUTRITION_STAGES[stageIdx];
-  if (!stageStartDate) return { stage: currentStage, dayInStage: 1, stageInfo, complete: false, notStarted: false };
-  const diffMs = new Date(getToday()) - new Date(stageStartDate);
-  const diffDays = Math.floor(diffMs / 86400000);
+function migrateSuppsV2(d) {
+  if (d._migrations?.supps_v2) return d;
+  const nd = JSON.parse(JSON.stringify(d));
+  Object.keys(nd.days || {}).forEach(dk => {
+    const day = nd.days[dk];
+    if (!day?.supps) return;
+    if (day.supps.s_magnesium !== undefined) {
+      const val = day.supps.s_magnesium;
+      day.supps.s_mag_1 = val; day.supps.s_mag_2 = val; day.supps.s_mag_3 = val;
+      delete day.supps.s_magnesium;
+    }
+    if (day.supps.s_calcium !== undefined) {
+      const val = day.supps.s_calcium;
+      day.supps.s_calcium_1 = val; day.supps.s_calcium_2 = val;
+      delete day.supps.s_calcium;
+    }
+  });
+  if (!nd._migrations) nd._migrations = {};
+  nd._migrations.supps_v2 = true;
+  if (!nd.reappro) nd.reappro = {};
+  return nd;
+}
+
+function getCurrentNutritionStage() {
+  const today = new Date(getToday());
+  const start = new Date(START_DATE);
+  const diffDays = Math.floor((today - start) / 86400000);
   if (diffDays < 0) {
-    return { stage: currentStage, dayInStage: 0, stageInfo, complete: false, notStarted: true, daysUntilStart: Math.abs(diffDays) };
+    return { stage: 1, dayInStage: 0, stageInfo: NUTRITION_STAGES[0], complete: false, notStarted: true, daysUntilStart: Math.abs(diffDays) };
   }
-  const dayInStage = diffDays + 1;
-  return { stage: currentStage, dayInStage: Math.min(dayInStage, STAGE_DAYS), stageInfo, complete: false, notStarted: false };
+  const totalDays = STAGE_DAYS * 4; // 120 jours au total
+  if (diffDays >= totalDays) {
+    return { stage: 4, dayInStage: STAGE_DAYS, stageInfo: NUTRITION_STAGES[3], complete: true, notStarted: false };
+  }
+  const stageIndex = Math.min(3, Math.floor(diffDays / STAGE_DAYS));
+  const dayInStage = (diffDays % STAGE_DAYS) + 1;
+  return { stage: stageIndex + 1, dayInStage, stageInfo: NUTRITION_STAGES[stageIndex], complete: false, notStarted: false };
+}
+
+// ---- WEIGHT TRACKING UTILITIES ----
+function isMonday(dateStr) {
+  return new Date(dateStr).getDay() === 1;
+}
+
+function getNextMonday(dateStr) {
+  const d = new Date(dateStr || getToday());
+  const day = d.getDay();
+  const daysUntil = day === 0 ? 1 : day === 1 ? 0 : 8 - day;
+  d.setDate(d.getDate() + daysUntil);
+  return d.toISOString().split("T")[0];
+}
+
+function getWeekInStage(data) {
+  if (!data.nutrition?.stageStartDate) return 1;
+  const stageStart = new Date(data.nutrition.stageStartDate);
+  const today = new Date(getToday());
+  const diffDays = Math.floor((today - stageStart) / 86400000);
+  if (diffDays < 0) return 0;
+  return Math.floor(diffDays / 7) + 1;
+}
+
+function getStageType(stageNum) {
+  return (stageNum === 1 || stageNum === 3) ? "regain" : "seche";
+}
+
+function getWeightAlert(data, currentWeekNum) {
+  const wk = `w${currentWeekNum}`;
+  const prevWk = `w${currentWeekNum - 1}`;
+  const prev2Wk = `w${currentWeekNum - 2}`;
+  const currentPoids = data.weight[wk]?.poids ? parseFloat(data.weight[wk].poids) : null;
+  const prevPoids = data.weight[prevWk]?.poids ? parseFloat(data.weight[prevWk].poids) : null;
+  const prev2Poids = data.weight[prev2Wk]?.poids ? parseFloat(data.weight[prev2Wk].poids) : null;
+
+  if (currentPoids === null || prevPoids === null) return null;
+
+  const delta = currentPoids - prevPoids;
+  const delta2 = prev2Poids !== null ? currentPoids - prev2Poids : null;
+  const prevDelta = prev2Poids !== null ? prevPoids - prev2Poids : null;
+  const stageNum = data.nutrition?.currentStage || 1;
+  const type = getStageType(stageNum);
+  const weekInStage = getWeekInStage(data);
+
+  if (type === "regain") {
+    // Baisse 2 semaines de suite
+    if (prevDelta !== null && prevDelta < 0 && delta < 0) {
+      return { type: "warning", text: "Tu perds du poids en regain ! Augmente tes calories de 100-200 kcal" };
+    }
+    // Monte trop vite (>+1kg/sem) — seulement à partir semaine 2
+    if (delta > 1 && weekInStage >= 2) {
+      return { type: "warning", text: "Tu prends trop vite, réduis un peu les glucides" };
+    }
+    // Monte vite semaine 1 = normal après sèche
+    if (delta > 1 && weekInStage === 1) {
+      return { type: "ok", text: "Normal après une sèche (eau + glycogène)" };
+    }
+    // Monte doucement
+    if (delta >= 0.2 && delta <= 0.5) {
+      return { type: "ok", text: "Parfait, regain efficace" };
+    }
+    // Stable
+    if (Math.abs(delta) < 0.2) {
+      return { type: "ok", text: "Bon maintien" };
+    }
+    // Monte un peu plus (0.5-1kg)
+    if (delta > 0.5 && delta <= 1) {
+      return { type: "ok", text: "Regain en cours, surveille la progression" };
+    }
+    // Perte légère
+    if (delta < 0) {
+      return { type: "warning", text: "Tu perds du poids en regain ! Augmente tes calories de 100-200 kcal" };
+    }
+  }
+
+  if (type === "seche") {
+    // Semaines 1-2 : perte 1.5-2.5kg normale
+    if (weekInStage <= 2 && delta <= -1.5 && delta >= -2.5) {
+      return { type: "ok", text: "Normal, c'est l'eau et le glycogène qui partent" };
+    }
+    // Semaines 1-2 : perte plus grande
+    if (weekInStage <= 2 && delta < -2.5) {
+      return { type: "ok", text: "Grosse perte initiale — eau et glycogène, c'est normal" };
+    }
+    // À partir semaine 3 : perte trop rapide (>2kg/sem)
+    if (weekInStage > 2 && delta < -2) {
+      return { type: "warning", text: "Trop rapide, tu risques de perdre du muscle" };
+    }
+    // À partir semaine 3 : plateau (stable 2 semaines de suite)
+    if (weekInStage >= 3 && prevDelta !== null && Math.abs(delta) < 0.3 && Math.abs(prevDelta) < 0.3) {
+      return { type: "warning", text: "Plateau ! Ajoute 200 kcal de déficit" };
+    }
+    // À partir semaine 3 : perte efficace (0.7-1.2kg/sem)
+    if (weekInStage >= 3 && delta >= -1.2 && delta <= -0.7) {
+      return { type: "ok", text: "Parfait, sèche efficace" };
+    }
+    // Semaines 1-2 : perte légère
+    if (weekInStage <= 2 && delta < 0) {
+      return { type: "ok", text: "Début de sèche, le corps s'adapte" };
+    }
+    // À partir semaine 3 : perte modérée
+    if (weekInStage >= 3 && delta < 0) {
+      return { type: "ok", text: "Sèche en cours, bonne progression" };
+    }
+    // Poids stable semaine 1-2
+    if (weekInStage <= 2 && Math.abs(delta) < 0.3) {
+      return { type: "ok", text: "Le corps s'adapte, la perte va commencer" };
+    }
+    // Prise de poids en sèche
+    if (delta > 0) {
+      return { type: "warning", text: "Prise de poids en sèche — vérifie ton déficit calorique" };
+    }
+  }
+
+  return { type: "ok", text: `${delta > 0 ? "+" : ""}${delta.toFixed(1)} kg cette semaine` };
+}
+
+async function compressImage(file, maxWidth = 400, quality = 0.6) {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        const ratio = Math.min(maxWidth / img.width, maxWidth / img.height);
+        canvas.width = img.width * ratio;
+        canvas.height = img.height * ratio;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL("image/jpeg", quality));
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
 }
 
 
@@ -398,7 +589,7 @@ function getWeekAvgScore(data, weekNum) {
     if (day) {
       let t = 0, d2 = 0;
       HABITS.filter(h => !h.weekly).forEach(() => t++);
-      getMealsForStage(data.nutrition?.currentStage || 1).forEach(() => t++); SUPPS.forEach(() => t++);
+      getMealsForStage(data.nutrition?.currentStage || 1).forEach(() => t++); getSuppsForStage(data.nutrition?.currentStage || 1).forEach(() => t++);
       if (day.habits) Object.values(day.habits).forEach(v => { if (v) d2++; });
       if (day.meals) Object.values(day.meals).forEach(v => { if (v) d2++; });
       if (day.supps) Object.values(day.supps).forEach(v => { if (v) d2++; });
@@ -419,7 +610,7 @@ const ACHIEVEMENT_REWARDS = [
   { id: "streak_14", emoji: "🛥️", title: "Balade en bateau", desc: "Tour en bateau à Gênes", condition: "14 jours de streak", check: (d) => d.bestStreak >= 14 },
   { id: "streak_21", emoji: "🎭", title: "Opéra à Florence", desc: "Spectacle dans un théâtre historique", condition: "21 jours de streak", check: (d) => d.bestStreak >= 21 },
   { id: "perfect_week", emoji: "🍕", title: "Pizza Napolitaine", desc: "La meilleure pizza de ta vie", condition: "1 semaine à 100%", check: (d) => { for (let w = 1; w <= 4; w++) if (getWeekAvgScore(d, w) >= 98) return true; return false; }},
-  { id: "all_supps_10", emoji: "🏎️", title: "Tour en Vespa", desc: "Location Vespa pour explorer Rome à deux", condition: "10j suppléments complets", check: (d) => { let c = 0; Object.values(d.days).forEach(day => { if (day.supps && Object.values(day.supps).filter(Boolean).length >= 10) c++; }); return c >= 10; }},
+  { id: "all_supps_10", emoji: "🏎️", title: "Tour en Vespa", desc: "Location Vespa pour explorer Rome à deux", condition: "10j suppléments complets", check: (d) => { let c = 0; const expected = getSuppsForStage(d.nutrition?.currentStage || 1).length; Object.values(d.days).forEach(day => { if (day.supps && Object.values(day.supps).filter(Boolean).length >= expected) c++; }); return c >= 10; }},
   { id: "weight_loss", emoji: "🛍️", title: "Shopping à Milan", desc: "Détour shopping pour ta nouvelle silhouette", condition: "Premier kg perdu", check: (d) => { const w1 = d.weight?.w1?.poids ? parseFloat(d.weight.w1.poids) : 0; const latest = Object.keys(d.weight || {}).sort().reverse().find(k => d.weight[k]?.poids); const last = latest ? parseFloat(d.weight[latest].poids) : 0; return w1 > 0 && last > 0 && w1 - last >= 1; }},
   { id: "all_temps", emoji: "🍷", title: "Dégustation de vin", desc: "Dégustation dans un vignoble toscan", condition: "Température 7j de suite", check: (d) => { let con = 0, max = 0; const start = new Date(START_DATE); for (let i = 0; i < 30; i++) { const dt = new Date(start); dt.setDate(dt.getDate() + i); const k = dt.toISOString().split("T")[0]; const t = d.days[k]?.temp; if (t && t.reveil && t.apres_repas && t.aprem) { con++; max = Math.max(max, con); } else con = 0; } return max >= 7; }},
   { id: "xp_3000", emoji: "📸", title: "Shooting Photo", desc: "Photos souvenirs devant la Fontaine de Trevi", condition: "Atteindre 3000 XP", check: (d) => d.totalXP >= 3000 },
@@ -715,6 +906,116 @@ function EventModal({ event, onSave, onDelete, onClose }) {
   );
 }
 
+// ---- WEIGHT FORM ----
+function WeightForm({ weekNum, existing, onSave, onCancel, photoInputRef1, photoInputRef2 }) {
+  const [poids, setPoids] = useState(existing?.poids || "");
+  const [tourTaille, setTourTaille] = useState(existing?.tour_taille || "");
+  const [energie, setEnergie] = useState(existing?.energie || 0);
+  const [photos, setPhotos] = useState(existing?.photos || []);
+  const [uploading, setUploading] = useState(false);
+
+  const handlePhoto = async (file, index) => {
+    if (!file) return;
+    setUploading(true);
+    try {
+      const compressed = await compressImage(file, 400, 0.6);
+      setPhotos(prev => {
+        const np = [...prev];
+        np[index] = compressed;
+        return np;
+      });
+    } catch (e) { console.error("Photo compression error:", e); }
+    setUploading(false);
+  };
+
+  const handleSave = () => {
+    if (!poids) return;
+    onSave(weekNum, {
+      poids: parseFloat(poids),
+      tour_taille: tourTaille ? parseFloat(tourTaille) : null,
+      energie,
+      photos: photos.filter(Boolean),
+    });
+  };
+
+  return (
+    <div>
+      <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 14 }}>⚖️ Pesée — Semaine {weekNum}</div>
+
+      {/* Poids */}
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+        <span style={{ fontSize: 20 }}>⚖️</span>
+        <span style={{ flex: 1, fontSize: 12, fontWeight: 600 }}>Poids (kg)</span>
+        <input type="number" step="0.1" value={poids} placeholder="Ex: 78.5" onChange={e => setPoids(e.target.value)}
+          style={{ width: 100, background: "#0a0a1a", border: "1px solid #1e1e4a", borderRadius: 10, padding: "8px 12px", color: "#ffeb3b", fontSize: 16, fontWeight: 700, fontFamily: "'Space Mono'", textAlign: "right", outline: "none" }} />
+      </div>
+
+      {/* Tour de taille */}
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+        <span style={{ fontSize: 20 }}>📏</span>
+        <span style={{ flex: 1, fontSize: 12, fontWeight: 600 }}>Tour de taille (cm) <span style={{ color: "#555", fontWeight: 400 }}>optionnel</span></span>
+        <input type="number" step="0.5" value={tourTaille} placeholder="-" onChange={e => setTourTaille(e.target.value)}
+          style={{ width: 100, background: "#0a0a1a", border: "1px solid #1e1e4a", borderRadius: 10, padding: "8px 12px", color: "#4a90d9", fontSize: 16, fontWeight: 700, fontFamily: "'Space Mono'", textAlign: "right", outline: "none" }} />
+      </div>
+
+      {/* Énergie */}
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+        <span style={{ fontSize: 20 }}>⚡</span>
+        <span style={{ flex: 1, fontSize: 12, fontWeight: 600 }}>Ressenti énergie</span>
+        <div style={{ display: "flex", gap: 4 }}>
+          {[1, 2, 3, 4, 5].map(n => (
+            <span key={n} onClick={() => setEnergie(n)} style={{ fontSize: 22, cursor: "pointer", transition: "transform .15s", transform: n <= energie ? "scale(1.1)" : "scale(1)" }}>
+              {n <= energie ? "⭐" : "☆"}
+            </span>
+          ))}
+        </div>
+      </div>
+
+      {/* Photos */}
+      <div style={{ paddingTop: 12, borderTop: "1px solid #1e1e4a", marginBottom: 14 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+          <span style={{ fontSize: 20 }}>📸</span>
+          <span style={{ fontSize: 12, fontWeight: 600 }}>Photos physique</span>
+          {uploading && <span style={{ fontSize: 10, color: "#e94560", animation: "pulse 1s infinite" }}>Compression...</span>}
+        </div>
+        <div style={{ display: "flex", gap: 10 }}>
+          {["Face", "Profil"].map((label, idx) => (
+            <div key={label} style={{ flex: 1 }}>
+              <input ref={idx === 0 ? photoInputRef1 : photoInputRef2} type="file" accept="image/*" capture="environment" style={{ display: "none" }}
+                onChange={e => { if (e.target.files[0]) handlePhoto(e.target.files[0], idx); }} />
+              {photos[idx] ? (
+                <div style={{ position: "relative" }}>
+                  <img src={photos[idx]} alt={label} style={{ width: "100%", height: 120, objectFit: "cover", borderRadius: 12, border: "2px solid #4caf50" }} />
+                  <div onClick={() => (idx === 0 ? photoInputRef1 : photoInputRef2).current?.click()}
+                    style={{ position: "absolute", bottom: 6, right: 6, background: "rgba(0,0,0,.7)", borderRadius: 8, padding: "3px 8px", fontSize: 10, color: "#fff", cursor: "pointer" }}>Changer</div>
+                  <div style={{ position: "absolute", top: 6, left: 6, background: "rgba(76,175,80,.9)", borderRadius: 6, padding: "2px 6px", fontSize: 9, fontWeight: 700, color: "#fff" }}>{label} ✓</div>
+                </div>
+              ) : (
+                <div onClick={() => (idx === 0 ? photoInputRef1 : photoInputRef2).current?.click()}
+                  style={{ width: "100%", height: 120, borderRadius: 12, border: "2px dashed #1e1e4a", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", cursor: "pointer", background: "#0a0a1a" }}>
+                  <span style={{ fontSize: 24, opacity: .4 }}>📷</span>
+                  <span style={{ fontSize: 10, color: "#555", marginTop: 4 }}>{label}</span>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Boutons */}
+      <div style={{ display: "flex", gap: 10 }}>
+        {existing?.poids && (
+          <button onClick={onCancel} style={{ flex: 1, padding: "12px", borderRadius: 12, border: "1px solid #1e1e4a", background: "transparent", color: "#888", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Annuler</button>
+        )}
+        <button onClick={handleSave} disabled={!poids}
+          style={{ flex: 2, padding: "12px", borderRadius: 12, border: "none", background: poids ? "linear-gradient(135deg, #e94560, #c23152)" : "#1e1e4a", color: poids ? "#fff" : "#555", fontSize: 13, fontWeight: 700, cursor: poids ? "pointer" : "default", transition: "all .2s" }}>
+          {existing?.poids ? "Mettre à jour" : "Enregistrer la pesée"} ⚖️
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ---- LOGIN SCREEN ----
 function LoginScreen() {
   const [email, setEmail] = useState("");
@@ -777,8 +1078,12 @@ export default function App() {
   const [planViewMode, setPlanViewMode] = useState("day");
   const [editingEvent, setEditingEvent] = useState(null);
   const [recurActionPrompt, setRecurActionPrompt] = useState(null);
-  const [showStagePopup, setShowStagePopup] = useState(null);
-  const [showStagePicker, setShowStagePicker] = useState(false);
+  const [weightPhotoModal, setWeightPhotoModal] = useState(null);
+  const [weightEditMode, setWeightEditMode] = useState(false);
+  const [showSuppInfo, setShowSuppInfo] = useState(null);
+  const [reapproEdit, setReapproEdit] = useState(null);
+  const photoInputRef1 = useRef(null);
+  const photoInputRef2 = useRef(null);
 
   // Auth listener
   useEffect(() => {
@@ -795,11 +1100,12 @@ export default function App() {
   // Load local data immediately
   useEffect(() => {
     const saved = storage.get(STORAGE_KEY);
-    const d = saved || defaultData();
+    let d = saved || defaultData();
     if (!d.nutrition) {
       d.nutrition = { currentStage: 1, stageStartDate: "2026-02-23", cycleComplete: false };
-      storage.set(STORAGE_KEY, d);
     }
+    d = migrateSuppsV2(d);
+    storage.set(STORAGE_KEY, d);
     setData(d);
     setLoading(false);
   }, []);
@@ -812,9 +1118,10 @@ export default function App() {
         // Preserve local planning data if remote doesn't have it
         if (!synced.planning && data.planning && Object.keys(data.planning).length > 0) {
           synced.planning = data.planning;
-          storage.set(STORAGE_KEY, synced);
         }
-        setData(synced);
+        const migrated = migrateSuppsV2(synced);
+        storage.set(STORAGE_KEY, migrated);
+        setData(migrated);
       }
     });
   }, [session]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -864,6 +1171,31 @@ export default function App() {
     }
   }, [session]);
 
+  const saveReappro = useCallback((suppId, purchaseDate, quantityDays) => {
+    const nd = JSON.parse(JSON.stringify(data));
+    if (!nd.reappro) nd.reappro = {};
+    nd.reappro[suppId] = { purchaseDate, quantityDays: parseInt(quantityDays) };
+    save(nd);
+    setReapproEdit(null);
+  }, [data, save]);
+
+  function getReapproAlerts() {
+    if (!data?.reappro) return [];
+    const today = new Date(getToday());
+    const alerts = [];
+    Object.entries(data.reappro).forEach(([suppId, r]) => {
+      if (!r.purchaseDate || !r.quantityDays) return;
+      const endDate = new Date(r.purchaseDate);
+      endDate.setDate(endDate.getDate() + r.quantityDays);
+      const daysLeft = Math.ceil((endDate - today) / 86400000);
+      if (daysLeft <= 5) {
+        const supp = SUPPS_DETAILED.find(s => s.id === suppId);
+        if (supp) alerts.push({ ...supp, daysLeft, reorderDate: endDate.toISOString().split("T")[0] });
+      }
+    });
+    return alerts.sort((a, b) => a.daysLeft - b.daysLeft);
+  }
+
   const toggleItem = useCallback((cat, id, xpVal = 5) => {
     const dk = selectedDate;
     const nd = JSON.parse(JSON.stringify(data));
@@ -898,52 +1230,16 @@ export default function App() {
   const setSymptom = useCallback((s, v) => { const wk = `w${getWeekNumber(selectedDate)}`; const nd = JSON.parse(JSON.stringify(data)); if (!nd.weeks[wk]) nd.weeks[wk] = {}; if (!nd.weeks[wk].symptoms) nd.weeks[wk].symptoms = {}; nd.weeks[wk].symptoms[s] = v; save(nd); }, [data, selectedDate, save]);
   const setNaturo = useCallback((id, v) => { const wk = `w${getWeekNumber(selectedDate)}`; const nd = JSON.parse(JSON.stringify(data)); if (!nd.weeks[wk]) nd.weeks[wk] = {}; if (!nd.weeks[wk].naturo) nd.weeks[wk].naturo = {}; nd.weeks[wk].naturo[id] = v; save(nd); }, [data, selectedDate, save]);
   const setTemp = useCallback((slot, v) => { const nd = JSON.parse(JSON.stringify(data)); if (!nd.days[selectedDate]) nd.days[selectedDate] = {}; if (!nd.days[selectedDate].temp) nd.days[selectedDate].temp = {}; nd.days[selectedDate].temp[slot] = v; save(nd); }, [data, selectedDate, save]);
+  const saveWeightEntry = useCallback((weekNum, entry) => {
+    const wk = `w${weekNum}`;
+    const nd = JSON.parse(JSON.stringify(data));
+    nd.weight[wk] = { ...entry, date: getToday() };
+    save(nd);
+    setWeightEditMode(false);
+  }, [data, save]);
   const setWeightData = useCallback((f, v) => { const wk = `w${getWeekNumber(selectedDate)}`; const nd = JSON.parse(JSON.stringify(data)); if (!nd.weight[wk]) nd.weight[wk] = {}; nd.weight[wk][f] = v; save(nd); }, [data, selectedDate, save]);
 
-  const advanceStage = useCallback(() => {
-    const nd = JSON.parse(JSON.stringify(data));
-    if (!nd.nutrition) nd.nutrition = { currentStage: 1, stageStartDate: getToday(), cycleComplete: false };
-    const next = nd.nutrition.currentStage + 1;
-    if (next > 4) {
-      nd.nutrition.cycleComplete = true;
-    } else {
-      nd.nutrition.currentStage = next;
-      nd.nutrition.stageStartDate = getToday();
-    }
-    save(nd);
-    setShowStagePopup(null);
-  }, [data, save]);
-
-  const setNutritionStage = useCallback((stageNum) => {
-    const nd = JSON.parse(JSON.stringify(data));
-    if (!nd.nutrition) nd.nutrition = {};
-    nd.nutrition.currentStage = stageNum;
-    nd.nutrition.stageStartDate = getToday();
-    nd.nutrition.cycleComplete = false;
-    save(nd);
-  }, [data, save]);
-
-  const restartCycle = useCallback(() => {
-    const nd = JSON.parse(JSON.stringify(data));
-    nd.nutrition = { currentStage: 1, stageStartDate: getToday(), cycleComplete: false };
-    save(nd);
-    setShowStagePopup(null);
-  }, [data, save]);
-
-  // Auto-advance nutrition stage
-  useEffect(() => {
-    if (!data?.nutrition || data.nutrition.cycleComplete) return;
-    const { currentStage, stageStartDate } = data.nutrition;
-    if (!stageStartDate) return;
-    const dayInStage = Math.floor((new Date(getToday()) - new Date(stageStartDate)) / 86400000) + 1;
-    if (dayInStage > STAGE_DAYS) {
-      if (currentStage < 4) {
-        setShowStagePopup({ fromStage: currentStage, toStage: currentStage + 1, stageInfo: NUTRITION_STAGES[currentStage] });
-      } else {
-        setShowStagePopup({ complete: true });
-      }
-    }
-  }, [data?.nutrition]);
+  // Stages are now automatic based on START_DATE — no manual set/restart needed
 
   const toggleSportSeries = useCallback((exerciseId, seriesIndex) => {
     const dk = selectedDate;
@@ -1052,14 +1348,29 @@ export default function App() {
     return streak;
   }
 
+  function calcSuppsStreak(d) {
+    let streak = 0; const today = new Date(getToday());
+    const expected = getSuppsForStage(d.nutrition?.currentStage || 1).length;
+    for (let i = 0; i < 120; i++) { const dt = new Date(today); dt.setDate(dt.getDate() - i); const k = dt.toISOString().split("T")[0]; const dd = d.days[k]; if (!dd?.supps) break; const checked = Object.values(dd.supps).filter(Boolean).length; if (checked >= expected) streak++; else break; }
+    return streak;
+  }
+
   function getDayScore(dk) {
     const day = data?.days?.[dk]; if (!day) return 0; let total = 0, done = 0;
-    HABITS.filter(h => !h.weekly).forEach(() => total++); getMealsForStage(data?.nutrition?.currentStage || 1).forEach(() => total++); SUPPS.forEach(() => total++);
+    HABITS.filter(h => !h.weekly).forEach(() => total++); getMealsForStage(data?.nutrition?.currentStage || 1).forEach(() => total++); getSuppsForStage(data?.nutrition?.currentStage || 1).forEach(() => total++);
     if (day.habits) Object.values(day.habits).forEach(v => { if (v) done++; }); if (day.meals) Object.values(day.meals).forEach(v => { if (v) done++; }); if (day.supps) Object.values(day.supps).forEach(v => { if (v) done++; });
     return total > 0 ? Math.round((done / total) * 100) : 0;
   }
 
-  function getWeightChartData() { const d = []; for (let w = 1; w <= 5; w++) { const wk = data.weight[`w${w}`]; if (wk?.poids) d.push({ name: `S${w}`, poids: parseFloat(wk.poids) }); } return d; }
+  function getWeightChartData() {
+    const d = [];
+    const maxWeek = Math.max(...Object.keys(data.weight || {}).map(k => parseInt(k.replace("w", "")) || 0), 0);
+    for (let w = 1; w <= Math.max(maxWeek, 20); w++) {
+      const wk = data.weight[`w${w}`];
+      if (wk?.poids) d.push({ name: `S${w}`, poids: parseFloat(wk.poids), week: w });
+    }
+    return d;
+  }
   function getSymptomRadarData() { const wk = `w${getWeekNumber(selectedDate)}`; const syms = data.weeks[wk]?.symptoms || {}; return SYMPTOMS.slice(0, 8).map(s => ({ subject: s, value: syms[s] ?? 0, fullMark: 10 })); }
   function getTempChartData() { const d = []; const start = new Date(START_DATE); for (let i = 0; i < 30; i++) { const dt = new Date(start); dt.setDate(dt.getDate() + i); const k = dt.toISOString().split("T")[0]; const t = data.days[k]?.temp; if (t && (t.reveil || t.apres_repas || t.aprem)) d.push({ name: `J${i + 1}`, reveil: t.reveil ? parseFloat(t.reveil) : null, apres: t.apres_repas ? parseFloat(t.apres_repas) : null, aprem: t.aprem ? parseFloat(t.aprem) : null }); } return d; }
 
@@ -1070,17 +1381,19 @@ export default function App() {
 
   if (!session) return <LoginScreen />;
 
+  const programNotStarted = new Date(getToday()) < new Date(START_DATE);
+  const daysUntilProgram = programNotStarted ? Math.ceil((new Date(START_DATE) - new Date(getToday())) / 86400000) : 0;
   const avatarStage = getAvatarStage(data.totalXP);
   const currentCity = getCurrentCity(data.totalXP);
   const nextCity = getNextCity(data.totalXP);
-  const streak = calcStreak(data);
+  const streak = programNotStarted ? 0 : calcStreak(data);
   const dayNum = Math.max(1, Math.min(getDayNumber(getToday()), 30));
-  const dayScore = getDayScore(selectedDate);
+  const dayScore = programNotStarted ? 0 : getDayScore(selectedDate);
   const dayData = data.days[selectedDate] || {};
   const weekKey = `w${getWeekNumber(selectedDate)}`;
   const weekData = data.weeks[weekKey] || {};
-  const unlockedCount = countUnlocked();
-  const newCount = countNew();
+  const unlockedCount = programNotStarted ? 0 : countUnlocked();
+  const newCount = programNotStarted ? 0 : countNew();
   const totalRewards = WEEKLY_REWARDS.length + ACHIEVEMENT_REWARDS.length;
 
   const navigateDay = (dir) => { const d = new Date(selectedDate); d.setDate(d.getDate() + dir); setSelectedDate(d.toISOString().split("T")[0]); };
@@ -1178,50 +1491,79 @@ export default function App() {
         </div>
       )}
 
-      {/* STAGE ADVANCE POPUP */}
-      {showStagePopup && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.92)", zIndex: 999, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", animation: "unlockPop .5s ease", padding: 24 }}>
-          {showStagePopup.complete ? (<>
-            <div style={{ fontSize: 60, marginBottom: 12 }}>🏆🎉</div>
-            <div style={{ fontSize: 24, fontWeight: 900, textAlign: "center" }}>CYCLE TERMINÉ !</div>
-            <div style={{ fontSize: 14, color: "#999", marginTop: 8, textAlign: "center" }}>Bravo, tu as complété les 4 étapes !</div>
-            <div style={{ display: "flex", gap: 12, marginTop: 24 }}>
-              <div onClick={restartCycle} style={{ padding: "12px 24px", borderRadius: 12, fontSize: 14, fontWeight: 700, cursor: "pointer", background: "linear-gradient(135deg,#4caf50,#2e7d32)", color: "#fff" }}>Recommencer</div>
-              <div onClick={() => { advanceStage(); }} style={{ padding: "12px 24px", borderRadius: 12, fontSize: 14, fontWeight: 700, cursor: "pointer", background: "rgba(255,255,255,.1)", color: "#888" }}>Fermer</div>
+
+      {/* SUPPLEMENT INFO MODAL */}
+      {showSuppInfo && (
+        <div onClick={() => setShowSuppInfo(null)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.85)", zIndex: 999, display: "flex", alignItems: "flex-end", justifyContent: "center", padding: 0 }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: "linear-gradient(145deg,#0d0d24,#151535)", border: "1px solid #1e1e4a", borderRadius: "20px 20px 0 0", padding: 24, width: "100%", maxWidth: 480, animation: "slideUp .3s ease", maxHeight: "70vh", overflowY: "auto" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
+              <div style={{ width: 48, height: 48, borderRadius: 14, background: `${(SUPP_TIMING_GROUPS.find(g => g.id === showSuppInfo.timing) || {}).color || "#e94560"}20`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24 }}>{showSuppInfo.emoji}</div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 16, fontWeight: 800 }}>{showSuppInfo.label}</div>
+                <div style={{ fontSize: 11, color: "#888" }}>{showSuppInfo.brand}</div>
+              </div>
+              <div onClick={() => setShowSuppInfo(null)} style={{ fontSize: 18, color: "#555", cursor: "pointer", padding: 4 }}>✕</div>
             </div>
-          </>) : (<>
-            <div style={{ fontSize: 50, marginBottom: 12 }}>{showStagePopup.stageInfo.emoji}</div>
-            <div style={{ fontSize: 12, color: "#ffeb3b", letterSpacing: 3, fontWeight: 700 }}>NOUVELLE ÉTAPE</div>
-            <div style={{ fontSize: 32, fontWeight: 900, marginTop: 8 }}>ÉTAPE {showStagePopup.toStage}/4</div>
-            <div style={{ fontSize: 16, fontWeight: 700, color: showStagePopup.stageInfo.color, marginTop: 4 }}>{showStagePopup.stageInfo.name}</div>
-            <div style={{ fontSize: 22, fontWeight: 800, fontFamily: "'Space Mono'", marginTop: 8 }}>{showStagePopup.stageInfo.kcal.toLocaleString("fr-FR")} kcal</div>
-            <div onClick={advanceStage} style={{ marginTop: 24, padding: "14px 32px", borderRadius: 14, fontSize: 15, fontWeight: 700, cursor: "pointer", background: `linear-gradient(135deg, ${showStagePopup.stageInfo.color}, ${showStagePopup.stageInfo.color}cc)`, color: "#fff" }}>
-              Continuer →
+            {[
+              { label: "Dosage", value: showSuppInfo.dosage },
+              { label: "Timing", value: (SUPP_TIMING_GROUPS.find(g => g.id === showSuppInfo.timing) || {}).label || "" },
+              { label: "Prix/mois", value: showSuppInfo.price > 0 ? `${showSuppInfo.price.toFixed(2)}€` : "Inclus" },
+              showSuppInfo.secheOnly ? { label: "Phase", value: "Sèche uniquement" } : null,
+            ].filter(Boolean).map((item, i) => (
+              <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "10px 0", borderBottom: "1px solid #1a1a2e", fontSize: 12 }}>
+                <span style={{ color: "#888" }}>{item.label}</span>
+                <span style={{ fontWeight: 600 }}>{item.value}</span>
+              </div>
+            ))}
+            <div style={{ marginTop: 12, padding: 12, background: "rgba(255,235,59,.05)", borderRadius: 12, fontSize: 12, color: "#ccc", lineHeight: 1.5 }}>
+              💡 {showSuppInfo.info}
             </div>
-          </>)}
+            <div onClick={() => { setReapproEdit({ suppId: showSuppInfo.id, purchaseDate: getToday(), quantityDays: 30 }); setShowSuppInfo(null); }}
+              style={{ marginTop: 16, textAlign: "center", padding: "12px 0", borderRadius: 12, fontSize: 13, fontWeight: 700, cursor: "pointer", background: "rgba(255,255,255,.06)", border: "1px solid #2a2a4a", color: "#888" }}>
+              📦 Enregistrer un achat
+            </div>
+          </div>
         </div>
       )}
 
-      {/* STAGE PICKER MODAL */}
-      {showStagePicker && (
-        <div onClick={() => setShowStagePicker(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.85)", zIndex: 999, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
-          <div onClick={e => e.stopPropagation()} style={{ background: "linear-gradient(145deg,#0d0d24,#151535)", border: "1px solid #1e1e4a", borderRadius: 20, padding: 20, width: "100%", maxWidth: 320, animation: "slideUp .3s ease" }}>
-            <div style={{ fontSize: 15, fontWeight: 800, marginBottom: 16 }}>Changer d'étape</div>
-            {NUTRITION_STAGES.map(s => {
-              const isActive = s.id === getCurrentNutritionStage(data).stage;
-              return (
-                <div key={s.id} onClick={() => { setNutritionStage(s.id); setShowStagePicker(false); }}
-                  style={{ display: "flex", alignItems: "center", gap: 12, padding: 14, borderRadius: 14, cursor: "pointer", marginBottom: 6, transition: "all .15s", background: isActive ? `${s.color}15` : "transparent", border: `1px solid ${isActive ? s.color : "#1e1e4a"}` }}>
-                  <div style={{ fontSize: 24 }}>{s.emoji}</div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 13, fontWeight: 700 }}>Étape {s.id} — {s.name}</div>
-                    <div style={{ fontSize: 11, color: "#888" }}>{s.kcal.toLocaleString("fr-FR")} kcal</div>
+      {/* REAPPRO EDIT MODAL */}
+      {reapproEdit && (
+        <div onClick={() => setReapproEdit(null)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.85)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: "linear-gradient(145deg,#0d0d24,#151535)", border: "1px solid #1e1e4a", borderRadius: 20, padding: 20, width: "100%", maxWidth: 340, animation: "slideUp .3s ease" }}>
+            <div style={{ fontSize: 15, fontWeight: 800, marginBottom: 16 }}>📦 Enregistrer un achat</div>
+            {!reapproEdit.suppId ? (
+              <div style={{ marginBottom: 12 }}>
+                <div style={{ fontSize: 11, color: "#888", marginBottom: 6 }}>Supplément</div>
+                {SUPPS_DETAILED.map(s => (
+                  <div key={s.id} onClick={() => setReapproEdit({ ...reapproEdit, suppId: s.id })}
+                    style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", borderRadius: 10, cursor: "pointer", fontSize: 12, marginBottom: 2, background: "rgba(255,255,255,.03)", border: "1px solid #1a1a2e" }}>
+                    <span>{s.emoji}</span> <span>{s.label}</span>
                   </div>
-                  {isActive && <span style={{ color: s.color, fontSize: 16 }}>✓</span>}
+                ))}
+              </div>
+            ) : (
+              <>
+                <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 12, display: "flex", alignItems: "center", gap: 6 }}>
+                  {(SUPPS_DETAILED.find(s => s.id === reapproEdit.suppId) || {}).emoji} {(SUPPS_DETAILED.find(s => s.id === reapproEdit.suppId) || {}).label}
                 </div>
-              );
-            })}
-            <div onClick={() => setShowStagePicker(false)} style={{ marginTop: 8, textAlign: "center", padding: "10px 0", fontSize: 12, color: "#555", cursor: "pointer" }}>Annuler</div>
+                <div style={{ fontSize: 11, color: "#888", marginBottom: 4 }}>Date d'achat</div>
+                <input type="date" value={reapproEdit.purchaseDate} onChange={e => setReapproEdit({ ...reapproEdit, purchaseDate: e.target.value })}
+                  style={{ width: "100%", padding: "10px 12px", borderRadius: 10, border: "1px solid #2a2a4a", background: "#0a0a1a", color: "#fff", fontSize: 13, fontFamily: "'Space Mono'", marginBottom: 12, boxSizing: "border-box" }} />
+                <div style={{ fontSize: 11, color: "#888", marginBottom: 4 }}>Durée du stock (jours)</div>
+                <input type="number" value={reapproEdit.quantityDays} onChange={e => setReapproEdit({ ...reapproEdit, quantityDays: e.target.value })}
+                  style={{ width: "100%", padding: "10px 12px", borderRadius: 10, border: "1px solid #2a2a4a", background: "#0a0a1a", color: "#fff", fontSize: 13, fontFamily: "'Space Mono'", boxSizing: "border-box" }} />
+                <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
+                  <div onClick={() => { if (reapproEdit.suppId) saveReappro(reapproEdit.suppId, reapproEdit.purchaseDate, reapproEdit.quantityDays); }}
+                    style={{ flex: 1, padding: "12px 0", borderRadius: 12, textAlign: "center", fontSize: 14, fontWeight: 700, cursor: "pointer", background: "linear-gradient(135deg,#e94560,#c23152)", color: "#fff" }}>
+                    Sauvegarder
+                  </div>
+                  <div onClick={() => setReapproEdit(null)}
+                    style={{ padding: "12px 16px", borderRadius: 12, fontSize: 13, fontWeight: 600, cursor: "pointer", background: "rgba(255,255,255,.06)", color: "#888" }}>
+                    Annuler
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
@@ -1305,6 +1647,18 @@ export default function App() {
         </div>
       </div>
 
+      {/* MONDAY WEIGH-IN REMINDER */}
+      {isMonday(getToday()) && !data.weight[`w${getWeekNumber(getToday())}`]?.poids && (
+        <div onClick={() => setTab("weight")} style={{ margin: "0 16px", padding: "10px 16px", borderRadius: 12, background: "linear-gradient(135deg, rgba(233,69,96,.15), rgba(255,235,59,.1))", border: "1px solid rgba(233,69,96,.3)", display: "flex", alignItems: "center", gap: 10, cursor: "pointer", animation: "slideUp .4s ease" }}>
+          <span style={{ fontSize: 22 }}>📸</span>
+          <div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: "#e94560" }}>C'est le jour de la pesée !</div>
+            <div style={{ fontSize: 10, color: "#888" }}>Enregistre ton poids et tes photos</div>
+          </div>
+          <span style={{ marginLeft: "auto", fontSize: 16, color: "#e94560" }}>→</span>
+        </div>
+      )}
+
       {/* DATE NAV */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 16, padding: "10px 16px" }}>
         <button className="na" onClick={() => navigateDay(-1)}>←</button>
@@ -1328,14 +1682,33 @@ export default function App() {
       <div className="content-area" style={{ padding: "0 16px" }}>
 
         {tab === "dashboard" && (<div className="tab-grid" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          {programNotStarted && (
+            <div className="card" style={{ textAlign: "center", padding: "32px 20px", background: "linear-gradient(145deg, rgba(233,69,96,.12), rgba(255,235,59,.06))", border: "1px solid rgba(233,69,96,.3)" }}>
+              <div style={{ fontSize: 48, marginBottom: 12 }}>🚀</div>
+              <div style={{ fontSize: 20, fontWeight: 900, color: "#fff", letterSpacing: 1 }}>DÉBUT DU PROGRAMME</div>
+              <div style={{ fontSize: 64, fontWeight: 900, fontFamily: "'Space Mono'", color: "#e94560", margin: "8px 0" }}>
+                {daysUntilProgram}<span style={{ fontSize: 20, color: "#888" }}> jour{daysUntilProgram > 1 ? "s" : ""}</span>
+              </div>
+              <div style={{ fontSize: 14, color: "#ffeb3b", fontWeight: 700 }}>Lundi 23 Février 2026</div>
+              <div style={{ fontSize: 11, color: "#888", marginTop: 8 }}>Prépare-toi, le voyage Paris → Rome commence bientôt !</div>
+            </div>
+          )}
           <div className="card" style={{ padding: 12 }}><div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>🗺️ Paris → Rome</div><MapSVG xp={data.totalXP} /></div>
           <div className="card" style={{ textAlign: "center", padding: "16px 20px" }}><div style={{ fontSize: 13, fontWeight: 700, marginBottom: 4 }}>👤 Ma transformation</div><div style={{ fontSize: 10, color: "#888", marginBottom: 8 }}>{avatarStage.label}</div><div style={{ animation: "breathe 3s ease infinite" }}><AvatarSVG stage={avatarStage} size={140} /></div><div style={{ display: "flex", justifyContent: "center", gap: 4, marginTop: 8 }}>{AVATAR_STAGES.map((s, i) => (<div key={i} style={{ width: 8, height: 8, borderRadius: 4, background: data.totalXP >= s.min ? "#e94560" : "#1e1e4a", transition: "all .3s" }} />))}</div></div>
           {(() => { const nw = WEEKLY_REWARDS.find(r => !isWeekComplete(data, r.week)); const na = ACHIEVEMENT_REWARDS.find(r => !r.check(data)); const next = nw || na; if (!next) return null; return (<div className="card" style={{ padding: 14, cursor: "pointer", border: "1px solid #2a1a4a" }} onClick={() => setTab("rewards")}><div style={{ display: "flex", alignItems: "center", gap: 12 }}><div style={{ width: 44, height: 44, borderRadius: 12, background: "#111", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22 }}>🔒</div><div style={{ flex: 1 }}><div style={{ fontSize: 11, color: "#ffeb3b", fontWeight: 700 }}>Prochain cadeau</div><div style={{ fontSize: 12, color: "#888", marginTop: 2 }}>{next.condition || `Semaine ${next.week} — Score ≥ 70%`}</div></div><div style={{ fontSize: 18, color: "#444" }}>→</div></div></div>); })()}
           <div className="card"><div style={{ fontSize: 13, fontWeight: 700, marginBottom: 10 }}>📅 Planning</div>{(() => { const dow = new Date(selectedDate).getDay(); const s = SPORT_DAYS[dow]; const label = `${s.emoji} ${s.label}${s.subtitle ? " — " + s.subtitle : ""}`; return (<div style={{ display: "flex", gap: 6 }}>{[{ t: "☀️", v: label }, { t: "🌙", v: "Souplesse 60min" }].map((x, i) => (<div key={i} style={{ flex: 1, background: "#0a0a1a", borderRadius: 12, padding: "10px 12px", border: "1px solid #1e1e4a", cursor: i === 0 ? "pointer" : "default" }} onClick={i === 0 ? () => setTab("sport") : undefined}><div style={{ fontSize: 16, marginBottom: 4 }}>{x.t}</div><div style={{ fontSize: 12, fontWeight: 600 }}>{x.v}</div></div>))}</div>); })()}</div>
-          {(() => { const ds = getCurrentNutritionStage(data); return (<div className="card"><div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, marginBottom: 8 }}><span style={{ fontSize: 12 }}>{ds.stageInfo.emoji}</span><span style={{ fontSize: 11, fontWeight: 700, color: ds.stageInfo.color }}>Étape {ds.stage}/4 — {ds.stageInfo.name}</span></div><div style={{ display: "flex", justifyContent: "space-around", textAlign: "center" }}>{[{ l: "Glucides", v: ds.stageInfo.macros.glucides, c: "#ffeb3b" }, { l: "Protéines", v: ds.stageInfo.macros.proteines, c: "#e94560" }, { l: "Lipides", v: ds.stageInfo.macros.lipides, c: "#4caf50" }].map((m, i) => (<div key={i}><div style={{ width: 48, height: 48, borderRadius: "50%", border: `2.5px solid ${m.c}`, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 4px", fontSize: 13, fontWeight: 800, fontFamily: "'Space Mono'" }}>{m.v}</div><div style={{ fontSize: 10, color: "#666" }}>{m.l}</div></div>))}</div><div style={{ textAlign: "center", marginTop: 10, fontSize: 18, fontWeight: 900, fontFamily: "'Space Mono'", color: ds.stageInfo.color }}>{ds.stageInfo.kcal.toLocaleString("fr-FR")} kcal</div></div>); })()}
+          {(() => { const ds = getCurrentNutritionStage(); return (<div className="card"><div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, marginBottom: 8 }}><span style={{ fontSize: 12 }}>{ds.stageInfo.emoji}</span><span style={{ fontSize: 11, fontWeight: 700, color: ds.stageInfo.color }}>Étape {ds.stage}/4 — {ds.stageInfo.name}</span></div><div style={{ display: "flex", justifyContent: "space-around", textAlign: "center" }}>{[{ l: "Glucides", v: ds.stageInfo.macros.glucides, c: "#ffeb3b" }, { l: "Protéines", v: ds.stageInfo.macros.proteines, c: "#e94560" }, { l: "Lipides", v: ds.stageInfo.macros.lipides, c: "#4caf50" }].map((m, i) => (<div key={i}><div style={{ width: 48, height: 48, borderRadius: "50%", border: `2.5px solid ${m.c}`, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 4px", fontSize: 13, fontWeight: 800, fontFamily: "'Space Mono'" }}>{m.v}</div><div style={{ fontSize: 10, color: "#666" }}>{m.l}</div></div>))}</div><div style={{ textAlign: "center", marginTop: 10, fontSize: 18, fontWeight: 900, fontFamily: "'Space Mono'", color: ds.stageInfo.color }}>{ds.stageInfo.kcal.toLocaleString("fr-FR")} kcal</div></div>); })()}
         </div>)}
 
-        {tab === "habits" && (<div className="card"><div style={{ fontSize: 13, fontWeight: 700, marginBottom: 10 }}>✅ Habitudes du jour</div>{HABITS.map(h => { const done = dayData.habits?.[h.id] || false; return (<div key={h.id} className={`ci ${done ? "done" : ""}`} onClick={() => toggleItem("habits", h.id, h.xp)}><div className="cb">{done ? "✓" : ""}</div><span style={{ fontSize: 18 }}>{h.emoji}</span><span style={{ flex: 1, fontSize: 13, fontWeight: done ? 600 : 400 }}>{h.label}</span><span className="xp">+{h.xp}</span></div>); })}</div>)}
+        {tab === "habits" && (programNotStarted ? (
+          <div className="card" style={{ textAlign: "center", padding: "32px 20px" }}>
+            <div style={{ fontSize: 36, marginBottom: 8 }}>🚀</div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: "#ffeb3b" }}>Début dans {daysUntilProgram} jour{daysUntilProgram > 1 ? "s" : ""}</div>
+            <div style={{ fontSize: 11, color: "#888", marginTop: 4 }}>Lundi 23 Février 2026</div>
+          </div>
+        ) : (
+          <div className="card"><div style={{ fontSize: 13, fontWeight: 700, marginBottom: 10 }}>✅ Habitudes du jour</div>{HABITS.map(h => { const done = dayData.habits?.[h.id] || false; return (<div key={h.id} className={`ci ${done ? "done" : ""}`} onClick={() => toggleItem("habits", h.id, h.xp)}><div className="cb">{done ? "✓" : ""}</div><span style={{ fontSize: 18 }}>{h.emoji}</span><span style={{ flex: 1, fontSize: 13, fontWeight: done ? 600 : 400 }}>{h.label}</span><span className="xp">+{h.xp}</span></div>); })}</div>
+        ))}
 
         {tab === "planning" && (() => {
           const today = getToday();
@@ -1578,7 +1951,7 @@ export default function App() {
         })()}
 
         {tab === "food" && (() => {
-          const ns = getCurrentNutritionStage(data);
+          const ns = getCurrentNutritionStage();
           const { stage, dayInStage, stageInfo, complete, notStarted, daysUntilStart } = ns;
           const currentMeals = getMealsForStage(stage);
           const progressPct = notStarted ? 0 : (dayInStage / STAGE_DAYS) * 100;
@@ -1626,10 +1999,6 @@ export default function App() {
                   ))}
                 </div>
 
-                {/* Change stage button */}
-                <div onClick={() => setShowStagePicker(true)} style={{ marginTop: 12, padding: "6px 16px", borderRadius: 10, fontSize: 11, fontWeight: 600, cursor: "pointer", display: "inline-block", background: "rgba(255,255,255,.06)", color: "#888", border: "1px solid #2a2a4a" }}>
-                  Changer d'étape
-                </div>
               </div>
 
               {/* MEAL CHECKLIST */}
@@ -1659,18 +2028,138 @@ export default function App() {
                   <div style={{ fontSize: 40 }}>🏆</div>
                   <div style={{ fontSize: 18, fontWeight: 800, marginTop: 8 }}>Cycle terminé !</div>
                   <div style={{ fontSize: 12, color: "#888", marginTop: 4 }}>Tu as complété les 4 étapes (120 jours)</div>
-                  <div onClick={restartCycle} style={{ marginTop: 16, padding: "10px 24px", borderRadius: 12, fontSize: 13, fontWeight: 700, cursor: "pointer", background: "linear-gradient(135deg,#e94560,#c23152)", color: "#fff" }}>
-                    Recommencer le cycle
-                  </div>
                 </div>
               )}
             </div>
           );
         })()}
 
-        {tab === "supps" && (<div style={{ display: "flex", flexDirection: "column", gap: 12 }}><div className="card"><div style={{ fontSize: 13, fontWeight: 700, marginBottom: 10 }}>💊 Suppléments</div>{SUPPS.map(s => { const done = dayData.supps?.[s.id] || false; return (<div key={s.id} className={`ci ${done ? "done" : ""}`} onClick={() => toggleItem("supps", s.id, 5)}><div className="cb">{done ? "✓" : ""}</div><span style={{ fontSize: 18 }}>{s.emoji}</span><span style={{ flex: 1, fontSize: 13 }}>{s.label}</span><span className="xp">+5</span></div>); })}</div><div className="card" style={{ padding: 14 }}><div style={{ fontSize: 12, fontWeight: 700, marginBottom: 8 }}>⏰ Timing</div>{[{ t: "🌅 À jeun", v: "Collagène → jus d'orange" }, { t: "🍳 Petit-déj", v: "D3+K2+E+B+Mg" }, { t: "🥩 Midi", v: "Calcium+vinaigre+Mg" }, { t: "🏋️ Post-train", v: "Whey+Créatine" }, { t: "🌙 Dodo", v: "Taurine+Zinc+Mg" }].map((x, i) => (<div key={i} style={{ display: "flex", gap: 8, padding: "5px 0", fontSize: 11, borderBottom: i < 4 ? "1px solid #1a1a2e" : "none" }}><span style={{ color: "#e94560", fontWeight: 600, minWidth: 90 }}>{x.t}</span><span style={{ color: "#999" }}>{x.v}</span></div>))}</div></div>)}
+        {tab === "supps" && (() => {
+          // TODO: remettre le countdown après test
+          // if (programNotStarted) return (
+          //   <div className="card" style={{ textAlign: "center", padding: "32px 20px" }}>
+          //     <div style={{ fontSize: 36, marginBottom: 8 }}>🚀</div>
+          //     <div style={{ fontSize: 14, fontWeight: 700, color: "#ffeb3b" }}>Début dans {daysUntilProgram} jour{daysUntilProgram > 1 ? "s" : ""}</div>
+          //     <div style={{ fontSize: 11, color: "#888", marginTop: 4 }}>Lundi 23 Février 2026</div>
+          //   </div>
+          // );
+
+          const ns = getCurrentNutritionStage();
+          const isRegain = ns.stage === 1 || ns.stage === 3;
+          const groups = getSuppsGrouped(ns.stage);
+          const applicableSupps = getSuppsForStage(ns.stage);
+          const checkedCount = applicableSupps.filter(s => dayData.supps?.[s.id]).length;
+          const totalCount = applicableSupps.length;
+          const suppsStreak = calcSuppsStreak(data);
+          const budget = getSuppsBudget(ns.stage);
+          const reapproAlerts = getReapproAlerts();
+
+          return (
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+
+              {/* PROGRESS HEADER */}
+              <div className="card" style={{ textAlign: "center", padding: "16px 16px 20px" }}>
+                <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8, color: ns.stageInfo.color }}>
+                  ÉTAPE {ns.stage}/4 — {ns.stageInfo.emoji} {ns.stageInfo.name}
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                  <span style={{ fontSize: 11, color: "#888" }}>{checkedCount}/{totalCount} pris</span>
+                  <span style={{ fontSize: 11, color: "#888", fontFamily: "'Space Mono'" }}>
+                    {totalCount > 0 ? Math.round((checkedCount / totalCount) * 100) : 0}%
+                  </span>
+                </div>
+                <div style={{ height: 6, background: "#0a0a1a", borderRadius: 3, overflow: "hidden" }}>
+                  <div style={{
+                    width: `${totalCount > 0 ? (checkedCount / totalCount) * 100 : 0}%`, height: "100%",
+                    background: checkedCount === totalCount && totalCount > 0
+                      ? "linear-gradient(90deg,#4caf50,#2e7d32)"
+                      : "linear-gradient(90deg,#e94560,#c23152)",
+                    borderRadius: 3, transition: "width .5s"
+                  }} />
+                </div>
+                {suppsStreak > 0 && (
+                  <div style={{ marginTop: 8, fontSize: 11, color: "#ffeb3b", fontWeight: 700 }}>
+                    🔥 {suppsStreak} jour{suppsStreak > 1 ? "s" : ""} de streak supps
+                  </div>
+                )}
+              </div>
+
+              {/* TIMING GROUPS */}
+              {groups.map(g => (
+                <div key={g.id} className="card" style={{ borderLeft: `3px solid ${g.color}`, padding: "14px 16px" }}>
+                  <div style={{ fontSize: 12, fontWeight: 800, marginBottom: 8, color: g.color, display: "flex", alignItems: "center", gap: 6 }}>
+                    <span>{g.emoji}</span> {g.label}
+                    {g.supps.every(s => s.secheOnly) && (
+                      <span style={{ fontSize: 9, background: "#e9456020", color: "#e94560", padding: "2px 6px", borderRadius: 6, fontWeight: 600 }}>SÈCHE ONLY</span>
+                    )}
+                  </div>
+                  {g.supps.map(s => {
+                    const done = dayData.supps?.[s.id] || false;
+                    return (
+                      <div key={s.id} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        <div className={`ci ${done ? "done" : ""}`} style={{ flex: 1 }} onClick={() => toggleItem("supps", s.id, 5)}>
+                          <div className="cb">{done ? "✓" : ""}</div>
+                          <span style={{ fontSize: 16 }}>{s.emoji}</span>
+                          <span style={{ flex: 1, fontSize: 12 }}>{s.label}</span>
+                          <span className="xp">+5</span>
+                        </div>
+                        <div onClick={(e) => { e.stopPropagation(); setShowSuppInfo(s); }}
+                          style={{ width: 26, height: 26, borderRadius: "50%", background: "rgba(255,255,255,.06)", border: "1px solid #2a2a4a", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, cursor: "pointer", color: "#888", flexShrink: 0 }}>
+                          ℹ️
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ))}
+
+              {/* BUDGET */}
+              <div className="card" style={{ textAlign: "center", padding: 14 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 4 }}>💰 Budget mensuel suppléments</div>
+                <div style={{ fontSize: 20, fontWeight: 900, fontFamily: "'Space Mono'", color: "#ffeb3b" }}>
+                  {budget.toFixed(0)}€<span style={{ fontSize: 12, color: "#888" }}>/mois</span>
+                </div>
+                <div style={{ fontSize: 10, color: "#666", marginTop: 2 }}>
+                  {isRegain ? "Regain (sans whey)" : "Sèche (avec whey)"}
+                </div>
+              </div>
+
+              {/* RÉAPPRO */}
+              <div className="card" style={{ padding: 14 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 8 }}>⚠️ Réappro — alertes stock</div>
+                {reapproAlerts.length > 0 ? (
+                  reapproAlerts.map(a => (
+                    <div key={a.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 0", borderBottom: "1px solid #1a1a2e", fontSize: 12 }}>
+                      <span>{a.emoji}</span>
+                      <span style={{ flex: 1 }}>{a.label}</span>
+                      <span style={{ color: a.daysLeft <= 0 ? "#e94560" : "#ff9800", fontWeight: 700, fontFamily: "'Space Mono'" }}>
+                        {a.daysLeft <= 0 ? "ÉPUISÉ" : `${a.daysLeft}j`}
+                      </span>
+                    </div>
+                  ))
+                ) : (
+                  <div style={{ fontSize: 11, color: "#666", textAlign: "center", padding: "8px 0" }}>
+                    Aucune alerte. Clique ℹ️ sur un supplément pour enregistrer un achat.
+                  </div>
+                )}
+                <div onClick={() => setReapproEdit({ suppId: "", purchaseDate: getToday(), quantityDays: 30 })}
+                  style={{ marginTop: 8, textAlign: "center", padding: "8px 0", fontSize: 11, color: "#e94560", cursor: "pointer", fontWeight: 600 }}>
+                  + Enregistrer un achat
+                </div>
+              </div>
+
+            </div>
+          );
+        })()}
 
         {tab === "sport" && (() => {
+          if (programNotStarted) return (
+            <div className="card" style={{ textAlign: "center", padding: "32px 20px" }}>
+              <div style={{ fontSize: 36, marginBottom: 8 }}>🚀</div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: "#ffeb3b" }}>Début dans {daysUntilProgram} jour{daysUntilProgram > 1 ? "s" : ""}</div>
+              <div style={{ fontSize: 11, color: "#888", marginTop: 4 }}>Lundi 23 Février 2026</div>
+            </div>
+          );
           const dow = new Date(selectedDate).getDay();
           const session = SPORT_DAYS[dow];
           const sportData = dayData.sport || {};
@@ -1879,7 +2368,13 @@ export default function App() {
           );
         })()}
 
-        {tab === "health" && (<div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        {tab === "health" && (programNotStarted ? (
+          <div className="card" style={{ textAlign: "center", padding: "32px 20px" }}>
+            <div style={{ fontSize: 36, marginBottom: 8 }}>🚀</div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: "#ffeb3b" }}>Début dans {daysUntilProgram} jour{daysUntilProgram > 1 ? "s" : ""}</div>
+            <div style={{ fontSize: 11, color: "#888", marginTop: 4 }}>Lundi 23 Février 2026</div>
+          </div>
+        ) : <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           <div className="card"><div style={{ fontSize: 13, fontWeight: 700, marginBottom: 10 }}>🌡️ Température — Ray Peat</div>{[{ id: "reveil", label: "🌅 Réveil", norm: "36.6-37.0", lo: 36.6, hi: 37.0, warnLo: 36.4 }, { id: "apres_repas", label: "🍳 Après repas", norm: "36.8-37.2", lo: 36.8, hi: 37.2, warnLo: 36.6 }, { id: "aprem", label: "🌆 Fin aprem", norm: "36.8-37.2", lo: 36.8, hi: 37.2, warnLo: 36.6 }].map(slot => { const val = dayData.temp?.[slot.id] || ""; const n = parseFloat(val); let st = "", sc = "#555"; if (val && !isNaN(n)) { if (n >= slot.lo && n <= slot.hi) { st = "✅"; sc = "#4caf50"; } else if (n < slot.warnLo) { st = "⚠️"; sc = "#e94560"; } else if (n < slot.lo) { st = "🟡"; sc = "#ff9800"; } else { st = "🔴"; sc = "#e94560"; } } return (<div key={slot.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 0", borderBottom: "1px solid #111" }}><span style={{ fontSize: 12, flex: 1 }}>{slot.label} <span style={{ color: "#4caf50", fontSize: 10 }}>({slot.norm})</span></span><input type="number" step="0.1" min="35" max="39" value={val} placeholder="36.8" onChange={e => setTemp(slot.id, e.target.value)} style={{ width: 72 }} /><span style={{ fontSize: 12, color: sc, minWidth: 24 }}>{st}</span></div>); })}</div>
           <div className="card"><div style={{ fontSize: 13, fontWeight: 700, marginBottom: 4 }}>⚠️ Symptômes — S{getWeekNumber(selectedDate)}</div><div style={{ fontSize: 10, color: "#555", marginBottom: 10 }}>0 = catastrophe → 10 = excellent</div>{SYMPTOMS.map((s, i) => { const val = weekData.symptoms?.[s] ?? ""; return (<div key={i} style={{ display: "flex", alignItems: "center", gap: 4, padding: "6px 0", borderBottom: "1px solid #0d0d24" }}><span style={{ flex: 1, fontSize: 11 }}>{s}</span><div style={{ display: "flex", gap: 2 }}>{[...Array(11)].map((_, n) => (<div key={n} onClick={() => setSymptom(s, n)} style={{ width: 22, height: 22, borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, fontWeight: 700, cursor: "pointer", fontFamily: "'Space Mono'", background: val === n ? (n >= 7 ? "#2e7d32" : n >= 4 ? "#e65100" : "#c62828") : "#0a0a1a", color: val === n ? "#fff" : "#444", border: `1px solid ${val === n ? "transparent" : "#1e1e4a"}` }}>{n}</div>))}</div></div>); })}</div>
           <div className="card"><div style={{ fontSize: 13, fontWeight: 700, marginBottom: 10 }}>🌿 Naturopathie — S{getWeekNumber(selectedDate)}</div>{NATURO.map((n, i) => { const val = weekData.naturo?.[n.id] || ""; return (<div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 0", borderBottom: "1px solid #0d0d24" }}><div style={{ flex: 1 }}><div style={{ fontSize: 12 }}>{n.label}</div><div style={{ fontSize: 9, color: "#4caf50" }}>✓ {n.good}</div></div><input type="text" value={val} placeholder="..." onChange={e => setNaturo(n.id, e.target.value)} style={{ background: "#0a0a1a", border: "1px solid #1e1e4a", borderRadius: 8, color: "white", padding: "6px 8px", fontSize: 11, width: 110, fontFamily: "'Outfit'" }} /></div>); })}</div>
@@ -1896,16 +2391,203 @@ export default function App() {
           <div><div style={{ fontSize: 14, fontWeight: 800, marginBottom: 10 }}>🏆 Achievements</div><div style={{ display: "flex", flexDirection: "column", gap: 8 }}>{ACHIEVEMENT_REWARDS.map(r => { const unlocked = r.check(data); const isNew = unlocked && !(data.seenRewards || []).includes(r.id); return (<RewardCard key={r.id} reward={r} unlocked={unlocked} isNew={isNew} onClick={() => { if (isNew) markRewardSeen(r.id); }} />); })}</div></div>
         </div>)}
 
-        {tab === "stats" && (<div className="tab-grid" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        {tab === "stats" && (programNotStarted ? (
+          <div className="card" style={{ textAlign: "center", padding: "32px 20px" }}>
+            <div style={{ fontSize: 36, marginBottom: 8 }}>🚀</div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: "#ffeb3b" }}>Début dans {daysUntilProgram} jour{daysUntilProgram > 1 ? "s" : ""}</div>
+            <div style={{ fontSize: 11, color: "#888", marginTop: 4 }}>Lundi 23 Février 2026</div>
+          </div>
+        ) : <div className="tab-grid" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           <div className="card"><div style={{ fontSize: 13, fontWeight: 700, marginBottom: 12 }}>📉 Poids</div>{getWeightChartData().length > 1 ? (<ResponsiveContainer width="100%" height={180}><AreaChart data={getWeightChartData()}><defs><linearGradient id="wG" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#e94560" stopOpacity={.3} /><stop offset="100%" stopColor="#e94560" stopOpacity={0} /></linearGradient></defs><XAxis dataKey="name" tick={{ fill: "#555", fontSize: 10 }} axisLine={{ stroke: "#1e1e4a" }} /><YAxis domain={["dataMin-1", "dataMax+1"]} tick={{ fill: "#555", fontSize: 10 }} axisLine={{ stroke: "#1e1e4a" }} /><Tooltip contentStyle={{ background: "#0d0d24", border: "1px solid #2a2a5a", borderRadius: 8, fontSize: 12, color: "#fff" }} /><Area type="monotone" dataKey="poids" stroke="#e94560" strokeWidth={2} fill="url(#wG)" dot={{ fill: "#e94560", r: 4 }} /></AreaChart></ResponsiveContainer>) : (<div style={{ color: "#444", fontSize: 12, textAlign: "center", padding: 30 }}>2+ semaines → graph</div>)}</div>
           <div className="card"><div style={{ fontSize: 13, fontWeight: 700, marginBottom: 12 }}>🎯 Radar santé</div>{getSymptomRadarData().some(d => d.value > 0) ? (<ResponsiveContainer width="100%" height={220}><RadarChart data={getSymptomRadarData()}><PolarGrid stroke="#1e1e4a" /><PolarAngleAxis dataKey="subject" tick={{ fill: "#888", fontSize: 9 }} /><PolarRadiusAxis domain={[0, 10]} tick={false} axisLine={false} /><Radar name="Score" dataKey="value" stroke="#e94560" fill="#e94560" fillOpacity={.2} strokeWidth={2} dot={{ fill: "#e94560", r: 3 }} /></RadarChart></ResponsiveContainer>) : (<div style={{ color: "#444", fontSize: 12, textAlign: "center", padding: 30 }}>Remplis tes symptômes</div>)}</div>
           <div className="card"><div style={{ fontSize: 13, fontWeight: 700, marginBottom: 12 }}>🌡️ Températures</div>{getTempChartData().length > 1 ? (<><ResponsiveContainer width="100%" height={180}><LineChart data={getTempChartData()}><XAxis dataKey="name" tick={{ fill: "#555", fontSize: 9 }} axisLine={{ stroke: "#1e1e4a" }} /><YAxis domain={[36, 37.5]} tick={{ fill: "#555", fontSize: 10 }} axisLine={{ stroke: "#1e1e4a" }} /><Tooltip contentStyle={{ background: "#0d0d24", border: "1px solid #2a2a5a", borderRadius: 8, fontSize: 11, color: "#fff" }} /><Line type="monotone" dataKey="reveil" stroke="#4caf50" strokeWidth={2} dot={{ r: 2 }} connectNulls /><Line type="monotone" dataKey="apres" stroke="#ff9800" strokeWidth={2} dot={{ r: 2 }} connectNulls /><Line type="monotone" dataKey="aprem" stroke="#e94560" strokeWidth={2} dot={{ r: 2 }} connectNulls /></LineChart></ResponsiveContainer><div style={{ display: "flex", justifyContent: "center", gap: 12, marginTop: 8 }}>{[{ c: "#4caf50", l: "Réveil" }, { c: "#ff9800", l: "Repas" }, { c: "#e94560", l: "Aprem" }].map((x, i) => (<div key={i} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 10, color: "#888" }}><div style={{ width: 8, height: 8, borderRadius: 4, background: x.c }} />{x.l}</div>))}</div></>) : (<div style={{ color: "#444", fontSize: 12, textAlign: "center", padding: 30 }}>Quelques jours → courbes</div>)}</div>
         </div>)}
 
-        {tab === "weight" && (<div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          <div className="card"><div style={{ fontSize: 13, fontWeight: 700, marginBottom: 12 }}>⚖️ Mesures — S{getWeekNumber(selectedDate)}</div>{[{ id: "poids", label: "Poids (kg)", icon: "⚖️" }, { id: "taille_tour", label: "Tour de taille", icon: "📏" }, { id: "bras_d", label: "Bras droit", icon: "💪" }, { id: "bras_g", label: "Bras gauche", icon: "💪" }, { id: "cuisses", label: "Cuisses", icon: "🦵" }].map(f => (<div key={f.id} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}><span style={{ fontSize: 18 }}>{f.icon}</span><span style={{ flex: 1, fontSize: 12 }}>{f.label}</span><input type="number" step="0.1" value={data.weight[weekKey]?.[f.id] || ""} placeholder="-" onChange={e => setWeightData(f.id, e.target.value)} /></div>))}<div style={{ display: "flex", alignItems: "center", gap: 6, paddingTop: 10, borderTop: "1px solid #1e1e4a" }}><span style={{ fontSize: 16 }}>📸</span><span style={{ fontSize: 12, flex: 1 }}>Photos ?</span>{["Face", "Profil", "Dos"].map(p => { const pk = `photo_${p.toLowerCase()}`; const done = data.weight[weekKey]?.[pk] || false; return (<div key={p} onClick={() => setWeightData(pk, !done)} style={{ padding: "4px 10px", borderRadius: 8, fontSize: 10, fontWeight: 600, cursor: "pointer", background: done ? "rgba(76,175,80,.15)" : "#0a0a1a", color: done ? "#4caf50" : "#555", border: `1px solid ${done ? "#4caf50" : "#1e1e4a"}` }}>{p} {done ? "✓" : ""}</div>); })}</div></div>
-          {Object.keys(data.weight).length > 0 && <div className="card"><div style={{ fontSize: 13, fontWeight: 700, marginBottom: 10 }}>📊 Historique</div><div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>{Object.keys(data.weight).sort().map(wk => { const w = data.weight[wk]; if (!w?.poids) return null; return (<div key={wk} style={{ background: "#0a0a1a", borderRadius: 12, padding: "8px 14px", textAlign: "center", border: "1px solid #1e1e4a", minWidth: 60 }}><div style={{ fontSize: 9, color: "#555" }}>{wk.toUpperCase()}</div><div style={{ fontSize: 18, fontWeight: 800, fontFamily: "'Space Mono'", color: "#ffeb3b" }}>{w.poids}</div><div style={{ fontSize: 9, color: "#555" }}>kg</div></div>); })}</div></div>}
-        </div>)}
+        {tab === "weight" && (() => {
+          if (programNotStarted) return (
+            <div className="card" style={{ textAlign: "center", padding: "32px 20px" }}>
+              <div style={{ fontSize: 36, marginBottom: 8 }}>⚖️</div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: "#ffeb3b" }}>Première pesée le 23 Février</div>
+              <div style={{ fontSize: 11, color: "#888", marginTop: 4 }}>Lundi 23 Février 2026</div>
+            </div>
+          );
+          const currentWeekNum = getWeekNumber(getToday());
+          const currentWeekKey = `w${currentWeekNum}`;
+          const currentEntry = data.weight[currentWeekKey];
+          const prevEntry = data.weight[`w${currentWeekNum - 1}`];
+          const hasEntry = currentEntry?.poids;
+          const stageInfo = getCurrentNutritionStage();
+          const stageType = getStageType(stageInfo.stage);
+          const weekInStage = getWeekInStage(data);
+          const totalWeeksInStage = Math.ceil(STAGE_DAYS / 7);
+          const alert = hasEntry ? getWeightAlert(data, currentWeekNum) : null;
+          const todayIsMonday = isMonday(getToday());
+          const nextMonday = getNextMonday(getToday());
+          const nextMondayLabel = (() => { const d = new Date(nextMonday); return `${["Dim","Lun","Mar","Mer","Jeu","Ven","Sam"][d.getDay()]} ${d.getDate()} ${["Jan","Fév","Mar","Avr","Mai","Jun","Jul","Aoû","Sep","Oct","Nov","Déc"][d.getMonth()]}`; })();
+          const showForm = !hasEntry || weightEditMode;
+          const delta = hasEntry && prevEntry?.poids ? parseFloat(currentEntry.poids) - parseFloat(prevEntry.poids) : null;
+
+          return (<div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+
+            {/* SECTION A — Bandeau étape actuelle */}
+            <div className="card" style={{ background: `linear-gradient(145deg, ${stageInfo.stageInfo.color}15, ${stageInfo.stageInfo.color}08)`, borderColor: `${stageInfo.stageInfo.color}40` }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <span style={{ fontSize: 28 }}>{stageInfo.stageInfo.emoji}</span>
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 800, color: stageInfo.stageInfo.color }}>ÉTAPE {stageInfo.stage} — {stageInfo.stageInfo.name}</div>
+                  <div style={{ fontSize: 11, color: "#888", marginTop: 2 }}>Semaine {weekInStage}/{totalWeeksInStage} de cette étape</div>
+                </div>
+              </div>
+            </div>
+
+            {/* SECTION B — Delta poids */}
+            {hasEntry && (
+              <div className="card">
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <div>
+                    <div style={{ fontSize: 11, color: "#888", marginBottom: 4 }}>Cette semaine</div>
+                    <div style={{ fontSize: 32, fontWeight: 900, fontFamily: "'Space Mono'", color: "#ffeb3b" }}>{currentEntry.poids}<span style={{ fontSize: 14, color: "#888" }}> kg</span></div>
+                  </div>
+                  {delta !== null && (
+                    <div style={{ textAlign: "right" }}>
+                      <div style={{ fontSize: 11, color: "#888", marginBottom: 4 }}>vs semaine dernière</div>
+                      <div style={{ fontSize: 22, fontWeight: 800, fontFamily: "'Space Mono'", color: delta > 0 ? (stageType === "regain" ? "#4caf50" : "#e94560") : (stageType === "seche" ? "#4caf50" : "#ff9800") }}>
+                        {delta > 0 ? "+" : ""}{delta.toFixed(1)} kg {delta > 0 ? "↗️" : delta < 0 ? "↘️" : "→"}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* SECTION C — Alerte intelligente */}
+            {alert && (
+              <div style={{ padding: "12px 16px", borderRadius: 14, background: alert.type === "ok" ? "rgba(76,175,80,.1)" : "rgba(255,152,0,.1)", border: `1px solid ${alert.type === "ok" ? "rgba(76,175,80,.3)" : "rgba(255,152,0,.3)"}`, display: "flex", alignItems: "center", gap: 10 }}>
+                <span style={{ fontSize: 18 }}>{alert.type === "ok" ? "✅" : "⚠️"}</span>
+                <span style={{ fontSize: 12, color: alert.type === "ok" ? "#4caf50" : "#ff9800", fontWeight: 600 }}>{alert.text}</span>
+              </div>
+            )}
+
+            {/* SECTION D — Formulaire ou résumé */}
+            <div className="card">
+              {!showForm ? (
+                <>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                    <div style={{ fontSize: 13, fontWeight: 700 }}>✅ Pesée enregistrée — S{currentWeekNum}</div>
+                    <div onClick={() => setWeightEditMode(true)} style={{ fontSize: 11, color: "#e94560", cursor: "pointer", fontWeight: 600 }}>Modifier</div>
+                  </div>
+                  <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+                    <div style={{ textAlign: "center" }}>
+                      <div style={{ fontSize: 9, color: "#555" }}>Poids</div>
+                      <div style={{ fontSize: 18, fontWeight: 800, fontFamily: "'Space Mono'", color: "#ffeb3b" }}>{currentEntry.poids} kg</div>
+                    </div>
+                    {currentEntry.tour_taille && (
+                      <div style={{ textAlign: "center" }}>
+                        <div style={{ fontSize: 9, color: "#555" }}>Tour de taille</div>
+                        <div style={{ fontSize: 18, fontWeight: 800, fontFamily: "'Space Mono'", color: "#4a90d9" }}>{currentEntry.tour_taille} cm</div>
+                      </div>
+                    )}
+                    {currentEntry.energie && (
+                      <div style={{ textAlign: "center" }}>
+                        <div style={{ fontSize: 9, color: "#555" }}>Énergie</div>
+                        <div style={{ fontSize: 18 }}>{"⭐".repeat(currentEntry.energie)}{"☆".repeat(5 - currentEntry.energie)}</div>
+                      </div>
+                    )}
+                    {currentEntry.photos?.length > 0 && (
+                      <div style={{ textAlign: "center" }}>
+                        <div style={{ fontSize: 9, color: "#555" }}>Photos</div>
+                        <div style={{ fontSize: 18, color: "#4caf50" }}>📸 {currentEntry.photos.length}/2</div>
+                      </div>
+                    )}
+                  </div>
+                </>
+              ) : (
+                <WeightForm
+                  weekNum={currentWeekNum}
+                  existing={currentEntry}
+                  onSave={saveWeightEntry}
+                  onCancel={() => setWeightEditMode(false)}
+                  photoInputRef1={photoInputRef1}
+                  photoInputRef2={photoInputRef2}
+                />
+              )}
+            </div>
+
+            {/* Prochain jour de pesée */}
+            {!todayIsMonday && !hasEntry && (
+              <div style={{ padding: "10px 16px", borderRadius: 12, background: "rgba(233,69,96,.08)", border: "1px solid rgba(233,69,96,.2)", textAlign: "center" }}>
+                <span style={{ fontSize: 12, color: "#e94560" }}>📅 Prochaine pesée : <strong>{nextMondayLabel}</strong></span>
+              </div>
+            )}
+
+            {/* SECTION E — Graphique d'évolution */}
+            {getWeightChartData().length > 1 && (
+              <div className="card">
+                <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 12 }}>📈 Évolution du poids</div>
+                <ResponsiveContainer width="100%" height={200}>
+                  <AreaChart data={getWeightChartData()}>
+                    <defs>
+                      <linearGradient id="wGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#e94560" stopOpacity={.3} />
+                        <stop offset="100%" stopColor="#e94560" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <XAxis dataKey="name" tick={{ fill: "#555", fontSize: 10 }} axisLine={{ stroke: "#1e1e4a" }} />
+                    <YAxis domain={["dataMin-1", "dataMax+1"]} tick={{ fill: "#555", fontSize: 10 }} axisLine={{ stroke: "#1e1e4a" }} />
+                    <Tooltip contentStyle={{ background: "#0d0d24", border: "1px solid #2a2a5a", borderRadius: 8, fontSize: 12, color: "#fff" }} formatter={(v) => [`${v} kg`, "Poids"]} />
+                    <Area type="monotone" dataKey="poids" stroke="#e94560" strokeWidth={2} fill="url(#wGrad)" dot={{ fill: "#e94560", r: 4 }} activeDot={{ r: 6 }} />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+
+            {/* SECTION F — Galerie photos */}
+            {(() => {
+              const weeksWithPhotos = Object.keys(data.weight).sort().filter(wk => data.weight[wk]?.photos?.length > 0);
+              if (weeksWithPhotos.length === 0) return null;
+              return (
+                <div className="card">
+                  <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 12 }}>📸 Évolution physique</div>
+                  <div style={{ display: "flex", gap: 10, overflowX: "auto", paddingBottom: 8, WebkitOverflowScrolling: "touch" }}>
+                    {weeksWithPhotos.map(wk => {
+                      const w = data.weight[wk];
+                      const weekNum = parseInt(wk.replace("w", ""));
+                      return (
+                        <div key={wk} onClick={() => setWeightPhotoModal({ weekKey: wk, weekNum })} style={{ flexShrink: 0, cursor: "pointer" }}>
+                          <div style={{ width: 80, height: 100, borderRadius: 12, overflow: "hidden", border: "2px solid #1e1e4a", position: "relative" }}>
+                            <img src={w.photos[0]} alt={`S${weekNum}`} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                            <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: "linear-gradient(transparent, rgba(0,0,0,.8))", padding: "4px 6px", textAlign: "center" }}>
+                              <div style={{ fontSize: 10, fontWeight: 700, color: "#fff" }}>S{weekNum}</div>
+                              {w.poids && <div style={{ fontSize: 8, color: "#ffeb3b", fontFamily: "'Space Mono'" }}>{w.poids}kg</div>}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Modale photo plein écran */}
+            {weightPhotoModal && (() => {
+              const wk = data.weight[weightPhotoModal.weekKey];
+              if (!wk?.photos?.length) return null;
+              return (
+                <div onClick={() => setWeightPhotoModal(null)} style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,.95)", zIndex: 1000, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 20 }}>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: "#fff", marginBottom: 12 }}>Semaine {weightPhotoModal.weekNum} {wk.poids && <span style={{ color: "#ffeb3b", fontFamily: "'Space Mono'" }}>— {wk.poids} kg</span>}</div>
+                  <div style={{ display: "flex", gap: 12, maxWidth: "100%", overflow: "auto" }}>
+                    {wk.photos.map((photo, i) => (
+                      <img key={i} src={photo} alt={`Photo ${i + 1}`} style={{ maxHeight: "70vh", maxWidth: "45vw", borderRadius: 12, objectFit: "contain" }} />
+                    ))}
+                  </div>
+                  <div style={{ fontSize: 12, color: "#888", marginTop: 12 }}>Toucher pour fermer</div>
+                </div>
+              );
+            })()}
+
+          </div>);
+        })()}
       </div>
 
       </div>{/* END MAIN CONTENT COLUMN */}
