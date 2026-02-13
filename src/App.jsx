@@ -128,26 +128,42 @@ function getSuppsBudget(stageNum) {
 }
 
 const ABS_CIRCUIT = [
-  { id: "abs_deadbug", label: "Dead bug", emoji: "🪲" },
-  { id: "abs_hollow", label: "Hollow body", emoji: "🫃" },
-  { id: "abs_planche", label: "Planche", emoji: "🧱" },
-  { id: "abs_birddog", label: "Bird dog", emoji: "🐕" },
-  { id: "abs_pallof", label: "Pallof press", emoji: "🔄" },
+  { id: "abs_gainage", label: "Gainage face + chaque côté", emoji: "🧱", reps: "1min + 30s/côté", image: "abdos-gainage.jpg" },
+  { id: "abs_oblique", label: "Oblique de chaque côté", emoji: "🔄", reps: "20 rep/côté", image: "abdos-oblique.jpg" },
+  { id: "abs_releve_jambes", label: "Relevé de jambes à la barre", emoji: "🦵", reps: "Max rep", image: "abdos-releve-jambes-barre.jpg" },
+  { id: "abs_roulette", label: "Roulette", emoji: "🛞", reps: "Max rep", image: "abdos-roulette.jpg" },
+  { id: "abs_crunch", label: "Crunch jambes/bras tendues", emoji: "💪", reps: "10-20 rep", image: "abdos-crunch-jambes-bras-tendues.jpg" },
+];
+
+const WARMUP_HDC = [
+  { id: "w_coiffe", label: "Coiffe des rotateurs", emoji: "🔄", reps: "20 rep de chaque", image: "echauff-hdc-coiffe-rotateurs.jpg" },
+  { id: "w_mobilite_epaule", label: "Mobilité épaule élastique", emoji: "🔴", reps: "10 rep", image: "echauff-hdc-mobilite-epaule.jpg" },
+  { id: "w_rotation_epaule", label: "Rotation circulaire épaule", emoji: "🔁", reps: "20 de chaque (avant/arrière)", image: "echauff-hdc-rotation-circulaire-epaule.jpg" },
+  { id: "w_pompes_surel", label: "Pompes mains surélevées", emoji: "🫸", reps: "10-20 rep", image: "echauff-hdc-pompes-mains-surelevees.jpg" },
+  { id: "w_aust_pronation", label: "Tractions australiennes pronation", emoji: "🇦🇺", reps: "10-20 rep", image: "echauff-hdc-tractions-australiennes-pronation.jpg" },
+];
+
+const WARMUP_BDC = [
+  { id: "w_circulaire_bassin", label: "Mouvement circulaire bassin", emoji: "🔄", reps: "10 dans chaque sens", image: "echauff-bdc-mouvement-circulaire-bassin.jpg" },
+  { id: "w_jambe_barriere", label: "Mouvement jambe contre barrière", emoji: "🦵", reps: "10 de chaque", image: "echauff-bdc-mouvement-jambe-barriere.jpg" },
+  { id: "w_balancement", label: "Balancement de jambe", emoji: "🦿", reps: "10 de chaque", image: "echauff-bdc-balancement-jambe.jpg" },
+  { id: "w_squat_iso", label: "Squat isométrique", emoji: "🧱", reps: "30 sec", image: "echauff-bdc-squat-isometrique.jpg" },
 ];
 
 const SPORT_DAYS = {
   1: {
-    id: "push", type: "muscu", label: "PUSH", subtitle: "Pecs, Épaules, Triceps", emoji: "🏋️", hasAbsCircuit: true,
+    id: "push", type: "muscu", label: "PUSH", subtitle: "Pec, Épaules, Triceps", emoji: "🏋️", hasAbsCircuit: true, warmup: "hdc",
     exercises: [
-      { id: "push_ss1a", label: "Dips Tempo", emoji: "⬇️", series: 5, reps: "15", rest: 90, superset: "push_ss1b", tempo: "1s montée 4s descente" },
-      { id: "push_ss1b", label: "Pompes Tempo", emoji: "💪", series: 5, reps: "20", rest: 90, tempo: "1s montée 4s descente" },
-      { id: "push_ss2a", label: "Dips Épaules", emoji: "⬆️", series: 5, reps: "15", rest: 90, superset: "push_ss2b" },
-      { id: "push_ss2b", label: "Développé épaules élastique", emoji: "🔴", series: 5, reps: "15", rest: 90 },
-      { id: "push_ss3a", label: "Tractions explosives / Négatifs muscle up", emoji: "🚀", series: 5, reps: "5-8", rest: 90, superset: "push_ss3b" },
-      { id: "push_ss3b", label: "Dips", emoji: "⬇️", series: 5, reps: "15", rest: 90, superset: "push_ss3c" },
-      { id: "push_ss3c", label: "Extension triceps élastique", emoji: "🔴", series: 5, reps: "15", rest: 90 },
-      { id: "push_ss4a", label: "Pompes diamant", emoji: "💎", series: 5, reps: "15", rest: 90, superset: "push_ss4b" },
-      { id: "push_ss4b", label: "Élévations latérales élastique", emoji: "🔴", series: 5, reps: "15", rest: 90 },
+      { id: "push_t1a", label: "Muscle Up", emoji: "🔝", series: 5, reps: "5-10", rest: 90, superset: "push_t1b", image: "push-muscle-up.jpg" },
+      { id: "push_t1b", label: "Dips Barre Parallèle", emoji: "⬇️", series: 5, reps: "10-20", rest: 90, superset: "push_t1c", image: "push-dips-barre-parallele.jpg" },
+      { id: "push_t1c", label: "Pompes Classique", emoji: "🫸", series: 5, reps: "10-20", rest: 90, image: "push-pompes-classique.jpg" },
+      { id: "push_t2a", label: "Dips Barre + Blocage Iso 90°", emoji: "⏸️", series: 5, reps: "15-20 + 15-20s", rest: 90, superset: "push_t2b", image: "push-dips-barre-blocage-isometrique.jpg" },
+      { id: "push_t2b", label: "Élévation Frontale Élastique", emoji: "🔴", series: 5, reps: "15-20", rest: 90, image: "push-elevation-frontale-elastique.jpg" },
+      { id: "push_t3a", label: "Dips Épaules Blocage 90° + Explosif", emoji: "💥", series: 5, reps: "15s + 15-20", rest: 90, superset: "push_t3b", image: "push-dips-epaules-blocage-explosif.jpg" },
+      { id: "push_t3b", label: "Pompes Pieds Surélevées", emoji: "⬆️", series: 5, reps: "15-20", rest: 90, image: "push-pompes-pieds-surelevees.jpg" },
+      { id: "push_t4a", label: "Barre au Front", emoji: "💪", series: 5, reps: "12", rest: 90, superset: "push_t4b", image: "push-barre-au-front.jpg" },
+      { id: "push_t4b", label: "Dips sur Banc", emoji: "🪑", series: 5, reps: "15", rest: 90, superset: "push_t4c", image: "push-dips-sur-banc.jpg" },
+      { id: "push_t4c", label: "Extension Triceps Élastique", emoji: "🔴", series: 5, reps: "15-20", rest: 90, image: "push-extension-triceps-elastique.jpg" },
     ],
   },
   2: {
@@ -189,15 +205,15 @@ const SPORT_DAYS = {
     info: "55 min — ~500-600 kcal — Crawl, brasse, papillon",
   },
   3: {
-    id: "pull", type: "muscu", label: "PULL", subtitle: "Dos, Biceps", emoji: "🏋️", hasAbsCircuit: true,
+    id: "pull", type: "muscu", label: "PULL", subtitle: "Dos, Biceps", emoji: "🏋️", hasAbsCircuit: true, warmup: "hdc",
     exercises: [
-      { id: "pull_ex1", label: "Tractions supination Tempo", emoji: "💪", series: 5, reps: "15", rest: 90, tempo: "1s montée 4s descente" },
-      { id: "pull_ss2a", label: "Tractions pronation larges", emoji: "↔️", series: 5, reps: "15", rest: 90, superset: "pull_ss2b" },
-      { id: "pull_ss2b", label: "Curl biceps élastique", emoji: "🔴", series: 5, reps: "15", rest: 90 },
-      { id: "pull_ss3a", label: "Australiennes", emoji: "🇦🇺", series: 5, reps: "15-20", rest: 90, superset: "pull_ss3b" },
-      { id: "pull_ss3b", label: "Curl marteau élastique", emoji: "🔴", series: 5, reps: "15", rest: 90 },
-      { id: "pull_ss4a", label: "Tractions neutres", emoji: "✊", series: 4, reps: "max", rest: 90, superset: "pull_ss4b" },
-      { id: "pull_ss4b", label: "Face pull élastique", emoji: "🔴", series: 4, reps: "20", rest: 90 },
+      { id: "pull_s1a", label: "Traction Prise Pronation", emoji: "💪", series: 5, reps: "15", rest: 120, superset: "pull_s1b", image: "pull-traction-pronation.jpg" },
+      { id: "pull_s1b", label: "Tirage Élastique Bûcheron", emoji: "🪓", series: 5, reps: "15/côté", rest: 120, image: "pull-tirage-elastique-bucheron.jpg" },
+      { id: "pull_s2a", label: "Traction Supination Prise Serrée", emoji: "✊", series: 5, reps: "15", rest: 90, superset: "pull_s2b", image: "pull-traction-supination-prise-serree.jpg" },
+      { id: "pull_s2b", label: "Curl Biceps Barre Dips", emoji: "💪", series: 5, reps: "blocage 5s + max rep", rest: 90, image: "pull-curl-biceps-barre-dips.jpg" },
+      { id: "pull_s3a", label: "Traction Neutre Échelle Large", emoji: "↔️", series: 5, reps: "15", rest: 90, superset: "pull_s3b", image: "pull-traction-neutre-echelle-large.jpg" },
+      { id: "pull_s3b", label: "Traction Australienne Barre Parallèle", emoji: "🇦🇺", series: 5, reps: "15", rest: 90, image: "pull-traction-australienne-barre-parallele.jpg" },
+      { id: "pull_ex4", label: "Traction Pronation Serrée Tempo Dégressif", emoji: "⏱️", series: 5, reps: "descente 5-10s", rest: 90, image: "pull-traction-pronation-serree-tempo.jpg" },
     ],
   },
   4: {
@@ -234,26 +250,28 @@ const SPORT_DAYS = {
     info: "55 min — ~450-550 kcal — Crawl & brasse allure modérée",
   },
   5: {
-    id: "superset", type: "muscu", label: "SUPER SET", subtitle: "Push + Pull combiné", emoji: "🏋️",
+    id: "fullhdc", type: "muscu", label: "FULL HDC", subtitle: "Full Haut du Corps", emoji: "🏋️", hasAbsCircuit: true, warmup: "hdc",
     exercises: [
-      { id: "ss_ss1a", label: "Dips", emoji: "⬇️", series: 5, reps: "15", rest: 90, superset: "ss_ss1b" },
-      { id: "ss_ss1b", label: "Tractions supination", emoji: "💪", series: 5, reps: "15", rest: 90 },
-      { id: "ss_ss2a", label: "Pompes", emoji: "🫸", series: 5, reps: "20", rest: 90, superset: "ss_ss2b" },
-      { id: "ss_ss2b", label: "Australiennes", emoji: "🇦🇺", series: 5, reps: "20", rest: 90 },
-      { id: "ss_ss3a", label: "Dips épaules", emoji: "⬆️", series: 5, reps: "15", rest: 90, superset: "ss_ss3b" },
-      { id: "ss_ss3b", label: "Tractions pronation", emoji: "↔️", series: 5, reps: "15", rest: 90 },
-      { id: "ss_ss4a", label: "Pompes diamant", emoji: "💎", series: 5, reps: "15", rest: 90, superset: "ss_ss4b" },
-      { id: "ss_ss4b", label: "Curl élastique", emoji: "🔴", series: 5, reps: "15", rest: 90 },
+      { id: "fhdc_s1a", label: "Dips en Haut de la Barre", emoji: "⬆️", series: 5, reps: "20", rest: 120, superset: "fhdc_s1b", image: "push-dips-barre-parallele.jpg" },
+      { id: "fhdc_s1b", label: "Traction Pronation (sans lâcher)", emoji: "💪", series: 5, reps: "15", rest: 120, image: "pull-traction-pronation.jpg" },
+      { id: "fhdc_s2a", label: "Dips Barre Parallèle", emoji: "⬇️", series: 5, reps: "20", rest: 90, superset: "fhdc_s2b", image: "push-dips-barre-parallele.jpg" },
+      { id: "fhdc_s2b", label: "Traction Australienne Prise Neutre", emoji: "🇦🇺", series: 5, reps: "20", rest: 90, image: "pull-traction-australienne-barre-parallele.jpg" },
+      { id: "fhdc_s3a", label: "Traction Australienne Pronation", emoji: "🔄", series: 5, reps: "30", rest: 90, superset: "fhdc_s3b", image: "fullhdc-traction-australienne-pronation.jpg" },
+      { id: "fhdc_s3b", label: "Pompes", emoji: "🫸", series: 5, reps: "30", rest: 90, image: "push-pompes-classique.jpg" },
+      { id: "fhdc_s4a", label: "Barre au Front", emoji: "💪", series: 5, reps: "15", rest: 90, superset: "fhdc_s4b", image: "push-barre-au-front.jpg" },
+      { id: "fhdc_s4b", label: "Curl Biceps Barre Dips", emoji: "✊", series: 5, reps: "15", rest: 90, image: "pull-curl-biceps-barre-dips.jpg" },
     ],
   },
   6: {
-    id: "jambes", type: "muscu", label: "JAMBES", subtitle: "Quadriceps, Ischio, Mollets", emoji: "🦵", hasAbsCircuit: true,
+    id: "legs", type: "muscu", label: "LEGS", subtitle: "Full Bas du Corps", emoji: "🦵", warmup: "bdc",
     exercises: [
-      { id: "jam_ex1", label: "Squat bulgare", emoji: "🦵", series: 5, reps: "15/jambe", rest: 90 },
-      { id: "jam_ex2", label: "Fentes sautées", emoji: "🦘", series: 5, reps: "20 total", rest: 90 },
-      { id: "jam_ex3", label: "Pistol squat (assisté si besoin)", emoji: "🔫", series: 4, reps: "8-10/jambe", rest: 90 },
-      { id: "jam_ex4", label: "Hip thrust", emoji: "🍑", series: 4, reps: "20", rest: 60 },
-      { id: "jam_ex5", label: "Mollets élévations", emoji: "⬆️", series: 4, reps: "25", rest: 60 },
+      { id: "legs_s1a", label: "Squat Talon Surélevé + Isométrie", emoji: "🦵", series: 5, reps: "20 + 20s blocage", rest: 90, superset: "legs_s1b", image: "legs-squat-talon-sureleve-isometrie.jpg" },
+      { id: "legs_s1b", label: "Marche des Canards", emoji: "🦆", series: 5, reps: "30 mètres", rest: 90, image: "legs-marche-canards.jpg" },
+      { id: "legs_s2a", label: "Squat Bulgare", emoji: "🦵", series: 5, reps: "20/jambe", rest: 90, superset: "legs_s2b", image: "legs-squat-bulgare.jpg" },
+      { id: "legs_s2b", label: "Ischio Unilatéral sur Chaise", emoji: "🪑", series: 5, reps: "20/jambe", rest: 90, image: "legs-ischio-unilateral-chaise.jpg" },
+      { id: "legs_t3a", label: "Squat + Box Jump + Squat Sauté", emoji: "📦", series: 5, reps: "15 + 15 + 15", rest: 90, image: "legs-squat-box-jump-squat-saute.jpg" },
+      { id: "legs_s4a", label: "Fentes Sautées Alternées", emoji: "🦘", series: 5, reps: "8/jambe", rest: 90, superset: "legs_s4b", image: "legs-fentes-sautees-alternees.jpg" },
+      { id: "legs_s4b", label: "Saut en Longueur Pied Joint", emoji: "🏃", series: 5, reps: "10 sauts", rest: 90, image: "legs-saut-longueur-pied-joint.jpg" },
     ],
   },
   0: {
@@ -291,9 +309,9 @@ const SPORT_DAYS = {
 };
 
 const REST_PRESETS = [
+  { label: "2:00", seconds: 120 },
   { label: "1:30", seconds: 90 },
   { label: "1:00", seconds: 60 },
-  { label: "0:45", seconds: 45 },
 ];
 
 const SYMPTOMS = ["Énergie","Humeur","Sommeil","Digestion","Peau","Cheveux","Dos","Mâchoire","Vue","Libido","Stress","Concentration","Articulations"];
@@ -2153,13 +2171,6 @@ export default function App() {
         })()}
 
         {tab === "sport" && (() => {
-          if (programNotStarted) return (
-            <div className="card" style={{ textAlign: "center", padding: "32px 20px" }}>
-              <div style={{ fontSize: 36, marginBottom: 8 }}>🚀</div>
-              <div style={{ fontSize: 14, fontWeight: 700, color: "#ffeb3b" }}>Début dans {daysUntilProgram} jour{daysUntilProgram > 1 ? "s" : ""}</div>
-              <div style={{ fontSize: 11, color: "#888", marginTop: 4 }}>Lundi 23 Février 2026</div>
-            </div>
-          );
           const dow = new Date(selectedDate).getDay();
           const session = SPORT_DAYS[dow];
           const sportData = dayData.sport || {};
@@ -2218,6 +2229,40 @@ export default function App() {
                 {!isMuscu && session.info && <div style={{ marginTop: 8, fontSize: 11, color: "#666" }}>{session.info}</div>}
               </div>
 
+              {/* WARMUP CIRCUIT */}
+              {isMuscu && session.warmup && (() => {
+                const warmupItems = session.warmup === "hdc" ? WARMUP_HDC : WARMUP_BDC;
+                const warmupLabel = session.warmup === "hdc" ? "Haut du Corps" : "Bas du Corps";
+                const warmupPasses = session.warmup === "hdc" ? "3 passages sans récup" : "3 passages sans récup";
+                return (
+                  <div className="card" style={{ padding: 14 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+                      <span style={{ fontSize: 20 }}>🔥</span>
+                      <div>
+                        <div style={{ fontSize: 12, fontWeight: 700 }}>Circuit Échauffement</div>
+                        <div style={{ fontSize: 10, color: "#888" }}>{warmupLabel} — {warmupPasses}</div>
+                      </div>
+                    </div>
+                    {warmupItems.map(item => {
+                      const done = sportData.exercises?.[item.id]?.series?.[0] || false;
+                      return (
+                        <div key={item.id}>
+                          <div className={`ci ${done ? "done" : ""}`} onClick={() => toggleSportSeries(item.id, 0)} style={{ padding: "10px 14px" }}>
+                            <div className="cb">{done ? "✓" : ""}</div>
+                            <span style={{ fontSize: 16 }}>{item.emoji}</span>
+                            <div style={{ flex: 1 }}>
+                              <span style={{ fontSize: 12, fontWeight: done ? 600 : 400 }}>{item.label}</span>
+                              <div style={{ fontSize: 10, color: "#888" }}>{item.reps}</div>
+                            </div>
+                          </div>
+                          {item.image && <img src={`/exercises/${item.image}`} alt={item.label} style={{ width: "100%", maxHeight: 180, objectFit: "contain", borderRadius: 8, marginBottom: 6, background: "#0a0a1a" }} />}
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
+
               {/* ABS CIRCUIT (muscu days with abs) */}
               {isMuscu && session.hasAbsCircuit && (
                 <div className="card" style={{ padding: 14 }}>
@@ -2225,16 +2270,22 @@ export default function App() {
                     <span style={{ fontSize: 20 }}>🔥</span>
                     <div>
                       <div style={{ fontSize: 12, fontWeight: 700 }}>Circuit Abdos</div>
-                      <div style={{ fontSize: 10, color: "#888" }}>15-20 min — 3-4 passages</div>
+                      <div style={{ fontSize: 10, color: "#888" }}>3 passages — 1 min récup</div>
                     </div>
                   </div>
                   {ABS_CIRCUIT.map(ab => {
                     const done = sportData.exercises?.[ab.id]?.series?.[0] || false;
                     return (
-                      <div key={ab.id} className={`ci ${done ? "done" : ""}`} onClick={() => toggleSportSeries(ab.id, 0)} style={{ padding: "10px 14px" }}>
-                        <div className="cb">{done ? "✓" : ""}</div>
-                        <span style={{ fontSize: 16 }}>{ab.emoji}</span>
-                        <span style={{ flex: 1, fontSize: 12, fontWeight: done ? 600 : 400 }}>{ab.label}</span>
+                      <div key={ab.id}>
+                        <div className={`ci ${done ? "done" : ""}`} onClick={() => toggleSportSeries(ab.id, 0)} style={{ padding: "10px 14px" }}>
+                          <div className="cb">{done ? "✓" : ""}</div>
+                          <span style={{ fontSize: 16 }}>{ab.emoji}</span>
+                          <div style={{ flex: 1 }}>
+                            <span style={{ fontSize: 12, fontWeight: done ? 600 : 400 }}>{ab.label}</span>
+                            <div style={{ fontSize: 10, color: "#888" }}>{ab.reps}</div>
+                          </div>
+                        </div>
+                        {ab.image && <img src={`/exercises/${ab.image}`} alt={ab.label} style={{ width: "100%", maxHeight: 180, objectFit: "contain", borderRadius: 8, marginBottom: 6, background: "#0a0a1a" }} />}
                       </div>
                     );
                   })}
@@ -2267,6 +2318,7 @@ export default function App() {
                             </div>
                             {doneCount === ex.series && <span style={{ fontSize: 16 }}>✅</span>}
                           </div>
+                          {ex.image && <img src={`/exercises/${ex.image}`} alt={ex.label} style={{ width: "100%", maxHeight: 180, objectFit: "contain", borderRadius: 8, marginBottom: 8, background: "#0a0a1a" }} />}
                           <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                             {[...Array(ex.series)].map((_, i) => {
                               const done = exData.series?.[i] || false;
