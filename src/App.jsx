@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, Fragment } from "react";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis, AreaChart, Area } from "recharts";
 import { supabase, storage, syncOnLoad, debouncedPush } from "./supabase.js";
 
@@ -47,17 +47,40 @@ const HABITS = [
   { id: "psy", label: "Psy (1×/semaine)", emoji: "🧠", xp: 40, weekly: true },
 ];
 
-const MEALS = [
+const STAGE_DAYS = 30;
+
+const NUTRITION_STAGES = [
+  { id: 1, name: "REGAIN D'ÉNERGIE", emoji: "🟢", kcal: 3100, macros: { glucides: "485g", proteines: "130g", lipides: "71g" }, budget: "~15,90€/jour", color: "#4caf50" },
+  { id: 2, name: "SÈCHE", emoji: "🔴", kcal: 2130, macros: { glucides: "175g", proteines: "200g", lipides: "70g" }, budget: "~14,63€/jour", color: "#e94560" },
+  { id: 3, name: "REGAIN D'ÉNERGIE", emoji: "🟢", kcal: 3100, macros: { glucides: "485g", proteines: "130g", lipides: "71g" }, budget: "~15,90€/jour", color: "#4caf50" },
+  { id: 4, name: "SÈCHE", emoji: "🔴", kcal: 2130, macros: { glucides: "175g", proteines: "200g", lipides: "70g" }, budget: "~14,63€/jour", color: "#e94560" },
+];
+
+const MEALS_REGAIN = [
+  { id: "jo", label: "Jus d'orange 2L", emoji: "🍊", xp: 5 },
+  { id: "miel", label: "Miel 200g", emoji: "🍯", xp: 5 },
+  { id: "banane", label: "Banane 800g (avec peau)", emoji: "🍌", xp: 5 },
+  { id: "boeuf", label: "Bœuf haché 5% — 450g", emoji: "🥩", xp: 10 },
+  { id: "oeufs", label: "6 œufs", emoji: "🥚", xp: 5 },
+  { id: "collagene", label: "Collagène 45g", emoji: "💪", xp: 10 },
+  { id: "beurre", label: "Beurre 15g", emoji: "🧈", xp: 3 },
+  { id: "huile_coco", label: "Huile de coco 7ml", emoji: "🥥", xp: 3 },
+];
+
+const MEALS_SECHE = [
   { id: "jo", label: "Jus d'orange 700ml", emoji: "🍊", xp: 5 },
-  { id: "miel", label: "Miel 48g", emoji: "🍯", xp: 5 },
-  { id: "banane", label: "Banane 265g", emoji: "🍌", xp: 5 },
-  { id: "boeuf", label: "Bœuf haché 300g", emoji: "🥩", xp: 10 },
+  { id: "miel", label: "Miel 76g", emoji: "🍯", xp: 5 },
+  { id: "banane", label: "Banane 265g (avec peau)", emoji: "🍌", xp: 5 },
+  { id: "boeuf", label: "Bœuf haché 5% — 300g", emoji: "🥩", xp: 10 },
   { id: "oeufs", label: "6 œufs", emoji: "🥚", xp: 5 },
   { id: "whey", label: "Whey Dynveo 80g", emoji: "🥛", xp: 10 },
   { id: "collagene", label: "Collagène AM 50g", emoji: "💪", xp: 10 },
   { id: "beurre", label: "Beurre 28g", emoji: "🧈", xp: 3 },
   { id: "legumes", label: "Carottes + Champignons", emoji: "🥕", xp: 5 },
 ];
+
+const STAGE_MEALS = { 1: MEALS_REGAIN, 2: MEALS_SECHE, 3: MEALS_REGAIN, 4: MEALS_SECHE };
+function getMealsForStage(stageNum) { return STAGE_MEALS[stageNum] || MEALS_SECHE; }
 
 const SUPPS = [
   { id: "s_collagene", label: "Collagène 50g", emoji: "💪" },
@@ -266,7 +289,7 @@ const EVENT_COLORS = [
   { id: "purple", hex: "#9c27b0", label: "Autre" },
 ];
 const PLANNING_HOURS = Array.from({ length: 18 }, (_, i) => i + 6);
-const HOUR_HEIGHT = 48;
+const HOUR_HEIGHT = 60;
 
 // Helpers
 function getToday() { return new Date().toISOString().split("T")[0]; }
@@ -346,7 +369,23 @@ function formatWeekRange(weekDates) {
   return `${first.getDate()} ${months[first.getMonth()]} — ${last.getDate()} ${months[last.getMonth()]}`;
 }
 
-const defaultData = () => ({ days: {}, weeks: {}, weight: {}, planning: {}, totalXP: 0, bestStreak: 0, seenRewards: [] });
+const defaultData = () => ({ days: {}, weeks: {}, weight: {}, planning: {}, totalXP: 0, bestStreak: 0, seenRewards: [], nutrition: { currentStage: 1, stageStartDate: null, cycleComplete: false } });
+
+function getCurrentNutritionStage(d) {
+  if (!d.nutrition) return { stage: 1, dayInStage: 1, stageInfo: NUTRITION_STAGES[0], complete: false, notStarted: false };
+  const { currentStage, stageStartDate, cycleComplete } = d.nutrition;
+  if (cycleComplete) return { stage: 4, dayInStage: STAGE_DAYS, stageInfo: NUTRITION_STAGES[3], complete: true, notStarted: false };
+  const stageIdx = Math.max(0, Math.min(3, currentStage - 1));
+  const stageInfo = NUTRITION_STAGES[stageIdx];
+  if (!stageStartDate) return { stage: currentStage, dayInStage: 1, stageInfo, complete: false, notStarted: false };
+  const diffMs = new Date(getToday()) - new Date(stageStartDate);
+  const diffDays = Math.floor(diffMs / 86400000);
+  if (diffDays < 0) {
+    return { stage: currentStage, dayInStage: 0, stageInfo, complete: false, notStarted: true, daysUntilStart: Math.abs(diffDays) };
+  }
+  const dayInStage = diffDays + 1;
+  return { stage: currentStage, dayInStage: Math.min(dayInStage, STAGE_DAYS), stageInfo, complete: false, notStarted: false };
+}
 
 
 function getWeekAvgScore(data, weekNum) {
@@ -359,7 +398,7 @@ function getWeekAvgScore(data, weekNum) {
     if (day) {
       let t = 0, d2 = 0;
       HABITS.filter(h => !h.weekly).forEach(() => t++);
-      MEALS.forEach(() => t++); SUPPS.forEach(() => t++);
+      getMealsForStage(data.nutrition?.currentStage || 1).forEach(() => t++); SUPPS.forEach(() => t++);
       if (day.habits) Object.values(day.habits).forEach(v => { if (v) d2++; });
       if (day.meals) Object.values(day.meals).forEach(v => { if (v) d2++; });
       if (day.supps) Object.values(day.supps).forEach(v => { if (v) d2++; });
@@ -738,6 +777,8 @@ export default function App() {
   const [planViewMode, setPlanViewMode] = useState("day");
   const [editingEvent, setEditingEvent] = useState(null);
   const [recurActionPrompt, setRecurActionPrompt] = useState(null);
+  const [showStagePopup, setShowStagePopup] = useState(null);
+  const [showStagePicker, setShowStagePicker] = useState(false);
 
   // Auth listener
   useEffect(() => {
@@ -754,7 +795,12 @@ export default function App() {
   // Load local data immediately
   useEffect(() => {
     const saved = storage.get(STORAGE_KEY);
-    setData(saved || defaultData());
+    const d = saved || defaultData();
+    if (!d.nutrition) {
+      d.nutrition = { currentStage: 1, stageStartDate: "2026-02-23", cycleComplete: false };
+      storage.set(STORAGE_KEY, d);
+    }
+    setData(d);
     setLoading(false);
   }, []);
 
@@ -853,6 +899,51 @@ export default function App() {
   const setNaturo = useCallback((id, v) => { const wk = `w${getWeekNumber(selectedDate)}`; const nd = JSON.parse(JSON.stringify(data)); if (!nd.weeks[wk]) nd.weeks[wk] = {}; if (!nd.weeks[wk].naturo) nd.weeks[wk].naturo = {}; nd.weeks[wk].naturo[id] = v; save(nd); }, [data, selectedDate, save]);
   const setTemp = useCallback((slot, v) => { const nd = JSON.parse(JSON.stringify(data)); if (!nd.days[selectedDate]) nd.days[selectedDate] = {}; if (!nd.days[selectedDate].temp) nd.days[selectedDate].temp = {}; nd.days[selectedDate].temp[slot] = v; save(nd); }, [data, selectedDate, save]);
   const setWeightData = useCallback((f, v) => { const wk = `w${getWeekNumber(selectedDate)}`; const nd = JSON.parse(JSON.stringify(data)); if (!nd.weight[wk]) nd.weight[wk] = {}; nd.weight[wk][f] = v; save(nd); }, [data, selectedDate, save]);
+
+  const advanceStage = useCallback(() => {
+    const nd = JSON.parse(JSON.stringify(data));
+    if (!nd.nutrition) nd.nutrition = { currentStage: 1, stageStartDate: getToday(), cycleComplete: false };
+    const next = nd.nutrition.currentStage + 1;
+    if (next > 4) {
+      nd.nutrition.cycleComplete = true;
+    } else {
+      nd.nutrition.currentStage = next;
+      nd.nutrition.stageStartDate = getToday();
+    }
+    save(nd);
+    setShowStagePopup(null);
+  }, [data, save]);
+
+  const setNutritionStage = useCallback((stageNum) => {
+    const nd = JSON.parse(JSON.stringify(data));
+    if (!nd.nutrition) nd.nutrition = {};
+    nd.nutrition.currentStage = stageNum;
+    nd.nutrition.stageStartDate = getToday();
+    nd.nutrition.cycleComplete = false;
+    save(nd);
+  }, [data, save]);
+
+  const restartCycle = useCallback(() => {
+    const nd = JSON.parse(JSON.stringify(data));
+    nd.nutrition = { currentStage: 1, stageStartDate: getToday(), cycleComplete: false };
+    save(nd);
+    setShowStagePopup(null);
+  }, [data, save]);
+
+  // Auto-advance nutrition stage
+  useEffect(() => {
+    if (!data?.nutrition || data.nutrition.cycleComplete) return;
+    const { currentStage, stageStartDate } = data.nutrition;
+    if (!stageStartDate) return;
+    const dayInStage = Math.floor((new Date(getToday()) - new Date(stageStartDate)) / 86400000) + 1;
+    if (dayInStage > STAGE_DAYS) {
+      if (currentStage < 4) {
+        setShowStagePopup({ fromStage: currentStage, toStage: currentStage + 1, stageInfo: NUTRITION_STAGES[currentStage] });
+      } else {
+        setShowStagePopup({ complete: true });
+      }
+    }
+  }, [data?.nutrition]);
 
   const toggleSportSeries = useCallback((exerciseId, seriesIndex) => {
     const dk = selectedDate;
@@ -963,7 +1054,7 @@ export default function App() {
 
   function getDayScore(dk) {
     const day = data?.days?.[dk]; if (!day) return 0; let total = 0, done = 0;
-    HABITS.filter(h => !h.weekly).forEach(() => total++); MEALS.forEach(() => total++); SUPPS.forEach(() => total++);
+    HABITS.filter(h => !h.weekly).forEach(() => total++); getMealsForStage(data?.nutrition?.currentStage || 1).forEach(() => total++); SUPPS.forEach(() => total++);
     if (day.habits) Object.values(day.habits).forEach(v => { if (v) done++; }); if (day.meals) Object.values(day.meals).forEach(v => { if (v) done++; }); if (day.supps) Object.values(day.supps).forEach(v => { if (v) done++; });
     return total > 0 ? Math.round((done / total) * 100) : 0;
   }
@@ -1032,7 +1123,7 @@ export default function App() {
         .tb.active{color:#e94560;background:rgba(233,69,96,.12)}
         .na{width:40px;height:40px;border-radius:12px;border:1px solid #2a2a4a;background:#0d0d24;color:white;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:16px;transition:all .15s;-webkit-tap-highlight-color:transparent}
         .na:active{transform:scale(.95);border-color:#e94560}
-        .plan-cell{cursor:pointer;transition:background .12s}.plan-cell:hover{background:rgba(233,69,96,.07)!important}
+        .plan-cell{cursor:pointer;transition:background .12s;-webkit-tap-highlight-color:transparent}.plan-cell:hover{background:rgba(233,69,96,.1)!important}.plan-cell:active{background:rgba(233,69,96,.18)!important}
         input[type=number],input[type=text]{background:#0d0d24;border:1px solid #2a2a4a;border-radius:10px;color:white;padding:10px 12px;font-family:'Space Mono';font-size:14px;width:80px;text-align:center;outline:none;-webkit-appearance:none}
         input:focus,textarea:focus{border-color:#e94560!important}
         textarea{-webkit-appearance:none;font-family:'Outfit',sans-serif}
@@ -1084,6 +1175,54 @@ export default function App() {
           <div style={{ width: 80, height: 80, borderRadius: 20, background: "linear-gradient(135deg,#e94560,#c23152)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 40, boxShadow: "0 8px 40px rgba(233,69,96,.4)", marginBottom: 16 }}>{showRewardPopup.emoji}</div>
           <div style={{ fontSize: 22, fontWeight: 800, marginBottom: 4 }}>{showRewardPopup.title}</div>
           <div style={{ fontSize: 13, color: "#999", maxWidth: 280, textAlign: "center" }}>{showRewardPopup.desc}</div>
+        </div>
+      )}
+
+      {/* STAGE ADVANCE POPUP */}
+      {showStagePopup && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.92)", zIndex: 999, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", animation: "unlockPop .5s ease", padding: 24 }}>
+          {showStagePopup.complete ? (<>
+            <div style={{ fontSize: 60, marginBottom: 12 }}>🏆🎉</div>
+            <div style={{ fontSize: 24, fontWeight: 900, textAlign: "center" }}>CYCLE TERMINÉ !</div>
+            <div style={{ fontSize: 14, color: "#999", marginTop: 8, textAlign: "center" }}>Bravo, tu as complété les 4 étapes !</div>
+            <div style={{ display: "flex", gap: 12, marginTop: 24 }}>
+              <div onClick={restartCycle} style={{ padding: "12px 24px", borderRadius: 12, fontSize: 14, fontWeight: 700, cursor: "pointer", background: "linear-gradient(135deg,#4caf50,#2e7d32)", color: "#fff" }}>Recommencer</div>
+              <div onClick={() => { advanceStage(); }} style={{ padding: "12px 24px", borderRadius: 12, fontSize: 14, fontWeight: 700, cursor: "pointer", background: "rgba(255,255,255,.1)", color: "#888" }}>Fermer</div>
+            </div>
+          </>) : (<>
+            <div style={{ fontSize: 50, marginBottom: 12 }}>{showStagePopup.stageInfo.emoji}</div>
+            <div style={{ fontSize: 12, color: "#ffeb3b", letterSpacing: 3, fontWeight: 700 }}>NOUVELLE ÉTAPE</div>
+            <div style={{ fontSize: 32, fontWeight: 900, marginTop: 8 }}>ÉTAPE {showStagePopup.toStage}/4</div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: showStagePopup.stageInfo.color, marginTop: 4 }}>{showStagePopup.stageInfo.name}</div>
+            <div style={{ fontSize: 22, fontWeight: 800, fontFamily: "'Space Mono'", marginTop: 8 }}>{showStagePopup.stageInfo.kcal.toLocaleString("fr-FR")} kcal</div>
+            <div onClick={advanceStage} style={{ marginTop: 24, padding: "14px 32px", borderRadius: 14, fontSize: 15, fontWeight: 700, cursor: "pointer", background: `linear-gradient(135deg, ${showStagePopup.stageInfo.color}, ${showStagePopup.stageInfo.color}cc)`, color: "#fff" }}>
+              Continuer →
+            </div>
+          </>)}
+        </div>
+      )}
+
+      {/* STAGE PICKER MODAL */}
+      {showStagePicker && (
+        <div onClick={() => setShowStagePicker(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.85)", zIndex: 999, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: "linear-gradient(145deg,#0d0d24,#151535)", border: "1px solid #1e1e4a", borderRadius: 20, padding: 20, width: "100%", maxWidth: 320, animation: "slideUp .3s ease" }}>
+            <div style={{ fontSize: 15, fontWeight: 800, marginBottom: 16 }}>Changer d'étape</div>
+            {NUTRITION_STAGES.map(s => {
+              const isActive = s.id === getCurrentNutritionStage(data).stage;
+              return (
+                <div key={s.id} onClick={() => { setNutritionStage(s.id); setShowStagePicker(false); }}
+                  style={{ display: "flex", alignItems: "center", gap: 12, padding: 14, borderRadius: 14, cursor: "pointer", marginBottom: 6, transition: "all .15s", background: isActive ? `${s.color}15` : "transparent", border: `1px solid ${isActive ? s.color : "#1e1e4a"}` }}>
+                  <div style={{ fontSize: 24 }}>{s.emoji}</div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 13, fontWeight: 700 }}>Étape {s.id} — {s.name}</div>
+                    <div style={{ fontSize: 11, color: "#888" }}>{s.kcal.toLocaleString("fr-FR")} kcal</div>
+                  </div>
+                  {isActive && <span style={{ color: s.color, fontSize: 16 }}>✓</span>}
+                </div>
+              );
+            })}
+            <div onClick={() => setShowStagePicker(false)} style={{ marginTop: 8, textAlign: "center", padding: "10px 0", fontSize: 12, color: "#555", cursor: "pointer" }}>Annuler</div>
+          </div>
         </div>
       )}
 
@@ -1193,7 +1332,7 @@ export default function App() {
           <div className="card" style={{ textAlign: "center", padding: "16px 20px" }}><div style={{ fontSize: 13, fontWeight: 700, marginBottom: 4 }}>👤 Ma transformation</div><div style={{ fontSize: 10, color: "#888", marginBottom: 8 }}>{avatarStage.label}</div><div style={{ animation: "breathe 3s ease infinite" }}><AvatarSVG stage={avatarStage} size={140} /></div><div style={{ display: "flex", justifyContent: "center", gap: 4, marginTop: 8 }}>{AVATAR_STAGES.map((s, i) => (<div key={i} style={{ width: 8, height: 8, borderRadius: 4, background: data.totalXP >= s.min ? "#e94560" : "#1e1e4a", transition: "all .3s" }} />))}</div></div>
           {(() => { const nw = WEEKLY_REWARDS.find(r => !isWeekComplete(data, r.week)); const na = ACHIEVEMENT_REWARDS.find(r => !r.check(data)); const next = nw || na; if (!next) return null; return (<div className="card" style={{ padding: 14, cursor: "pointer", border: "1px solid #2a1a4a" }} onClick={() => setTab("rewards")}><div style={{ display: "flex", alignItems: "center", gap: 12 }}><div style={{ width: 44, height: 44, borderRadius: 12, background: "#111", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22 }}>🔒</div><div style={{ flex: 1 }}><div style={{ fontSize: 11, color: "#ffeb3b", fontWeight: 700 }}>Prochain cadeau</div><div style={{ fontSize: 12, color: "#888", marginTop: 2 }}>{next.condition || `Semaine ${next.week} — Score ≥ 70%`}</div></div><div style={{ fontSize: 18, color: "#444" }}>→</div></div></div>); })()}
           <div className="card"><div style={{ fontSize: 13, fontWeight: 700, marginBottom: 10 }}>📅 Planning</div>{(() => { const dow = new Date(selectedDate).getDay(); const s = SPORT_DAYS[dow]; const label = `${s.emoji} ${s.label}${s.subtitle ? " — " + s.subtitle : ""}`; return (<div style={{ display: "flex", gap: 6 }}>{[{ t: "☀️", v: label }, { t: "🌙", v: "Souplesse 60min" }].map((x, i) => (<div key={i} style={{ flex: 1, background: "#0a0a1a", borderRadius: 12, padding: "10px 12px", border: "1px solid #1e1e4a", cursor: i === 0 ? "pointer" : "default" }} onClick={i === 0 ? () => setTab("sport") : undefined}><div style={{ fontSize: 16, marginBottom: 4 }}>{x.t}</div><div style={{ fontSize: 12, fontWeight: 600 }}>{x.v}</div></div>))}</div>); })()}</div>
-          <div className="card"><div style={{ display: "flex", justifyContent: "space-around", textAlign: "center" }}>{[{ l: "Glucides", v: "175g", c: "#ffeb3b" }, { l: "Protéines", v: "200g", c: "#e94560" }, { l: "Lipides", v: "70g", c: "#4caf50" }].map((m, i) => (<div key={i}><div style={{ width: 48, height: 48, borderRadius: "50%", border: `2.5px solid ${m.c}`, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 4px", fontSize: 13, fontWeight: 800, fontFamily: "'Space Mono'" }}>{m.v}</div><div style={{ fontSize: 10, color: "#666" }}>{m.l}</div></div>))}</div><div style={{ textAlign: "center", marginTop: 10, fontSize: 18, fontWeight: 900, fontFamily: "'Space Mono'", color: "#e94560" }}>2 130 kcal</div></div>
+          {(() => { const ds = getCurrentNutritionStage(data); return (<div className="card"><div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, marginBottom: 8 }}><span style={{ fontSize: 12 }}>{ds.stageInfo.emoji}</span><span style={{ fontSize: 11, fontWeight: 700, color: ds.stageInfo.color }}>Étape {ds.stage}/4 — {ds.stageInfo.name}</span></div><div style={{ display: "flex", justifyContent: "space-around", textAlign: "center" }}>{[{ l: "Glucides", v: ds.stageInfo.macros.glucides, c: "#ffeb3b" }, { l: "Protéines", v: ds.stageInfo.macros.proteines, c: "#e94560" }, { l: "Lipides", v: ds.stageInfo.macros.lipides, c: "#4caf50" }].map((m, i) => (<div key={i}><div style={{ width: 48, height: 48, borderRadius: "50%", border: `2.5px solid ${m.c}`, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 4px", fontSize: 13, fontWeight: 800, fontFamily: "'Space Mono'" }}>{m.v}</div><div style={{ fontSize: 10, color: "#666" }}>{m.l}</div></div>))}</div><div style={{ textAlign: "center", marginTop: 10, fontSize: 18, fontWeight: 900, fontFamily: "'Space Mono'", color: ds.stageInfo.color }}>{ds.stageInfo.kcal.toLocaleString("fr-FR")} kcal</div></div>); })()}
         </div>)}
 
         {tab === "habits" && (<div className="card"><div style={{ fontSize: 13, fontWeight: 700, marginBottom: 10 }}>✅ Habitudes du jour</div>{HABITS.map(h => { const done = dayData.habits?.[h.id] || false; return (<div key={h.id} className={`ci ${done ? "done" : ""}`} onClick={() => toggleItem("habits", h.id, h.xp)}><div className="cb">{done ? "✓" : ""}</div><span style={{ fontSize: 18 }}>{h.emoji}</span><span style={{ flex: 1, fontSize: 13, fontWeight: done ? 600 : 400 }}>{h.label}</span><span className="xp">+{h.xp}</span></div>); })}</div>)}
@@ -1207,7 +1346,8 @@ export default function App() {
           const effectiveView = isDesktop ? "week" : planViewMode;
 
           const openNewEvent = (dateStr, hour) => {
-            setEditingEvent({ isNew: true, date: dateStr, startH: hour, startM: 0, endH: Math.min(hour + 1, 23), endM: 0, color: EVENT_COLORS[0].hex, title: "", notes: "" });
+            console.log("cellule cliquée", dateStr, hour);
+            setEditingEvent({ isNew: true, date: dateStr, startH: hour, startM: 0, endH: Math.min(hour + 1, 23), endM: 0, color: EVENT_COLORS[0].hex, title: "", notes: "", recurrence: null });
           };
 
           const renderEventBlock = (evt, isWeekView) => {
@@ -1301,6 +1441,7 @@ export default function App() {
               {/* WEEK GRID */}
               {effectiveView === "week" && (
                 <div className="card" style={{ padding: 0, overflow: "hidden" }}>
+                  {/* Header row: day names */}
                   <div style={{ display: "grid", gridTemplateColumns: "40px repeat(7, 1fr)", borderBottom: "1px solid #1e1e4a" }}>
                     <div />
                     {weekDates.map((dateStr, i) => {
@@ -1316,24 +1457,66 @@ export default function App() {
                       );
                     })}
                   </div>
+                  {/* Scrollable body */}
                   <div style={{ overflowY: "auto", maxHeight: "60vh", position: "relative" }}>
-                    <div style={{ display: "grid", gridTemplateColumns: "40px repeat(7, 1fr)", minHeight: PLANNING_HOURS.length * HOUR_HEIGHT }}>
-                      {PLANNING_HOURS.map(h => (
-                        <div key={h} style={{ gridColumn: 1, height: HOUR_HEIGHT, borderTop: "1px solid #111",
-                          display: "flex", alignItems: "flex-start", justifyContent: "center", paddingTop: 2,
-                          fontSize: 9, color: "#444", fontFamily: "'Space Mono'" }}>{h}h</div>
-                      ))}
-                      {weekDates.map((dateStr, colIdx) => (
-                        <div key={dateStr} style={{ gridColumn: colIdx + 2, gridRow: "1 / -1", position: "relative",
-                          borderLeft: "1px solid #1a1a2e", background: dateStr === today ? "rgba(76,175,80,.03)" : "transparent" }}>
-                          {PLANNING_HOURS.map(h => (
-                            <div key={h} className="plan-cell" onClick={() => openNewEvent(dateStr, h)}
-                              style={{ height: HOUR_HEIGHT, borderTop: "1px solid #111" }} />
+                    {/* Flat grid: each cell is its own grid item */}
+                    <div style={{ display: "grid", gridTemplateColumns: "40px repeat(7, 1fr)", gridTemplateRows: `repeat(${PLANNING_HOURS.length}, ${HOUR_HEIGHT}px)` }}>
+                      {PLANNING_HOURS.map((h, rowIdx) => (
+                        <Fragment key={`row-${h}`}>
+                          {/* Hour label */}
+                          <div style={{ gridColumn: 1, gridRow: rowIdx + 1, height: HOUR_HEIGHT, borderTop: "1px solid #111",
+                            display: "flex", alignItems: "flex-start", justifyContent: "center", paddingTop: 4,
+                            fontSize: 9, color: "#444", fontFamily: "'Space Mono'" }}>{h}h</div>
+                          {/* 7 clickable day cells for this hour */}
+                          {weekDates.map((dateStr, colIdx) => (
+                            <div key={`${dateStr}-${h}`} className="plan-cell"
+                              onClick={() => openNewEvent(dateStr, h)}
+                              style={{ gridColumn: colIdx + 2, gridRow: rowIdx + 1, height: HOUR_HEIGHT, minHeight: 60,
+                                borderTop: "1px solid #111", borderLeft: "1px solid #1a1a2e",
+                                background: dateStr === today ? "rgba(76,175,80,.03)" : "transparent",
+                                cursor: "pointer", position: "relative", zIndex: 1 }} />
                           ))}
-                          {getEventsForDate(data.planning, dateStr).map(evt => renderEventBlock(evt, true))}
-                        </div>
+                        </Fragment>
                       ))}
                     </div>
+                    {/* Event overlays — positioned absolutely on top of the grid */}
+                    {weekDates.map((dateStr, colIdx) => {
+                      const events = getEventsForDate(data.planning, dateStr);
+                      if (events.length === 0) return null;
+                      return (
+                        <div key={`evts-${dateStr}`} style={{ position: "absolute", top: 0, left: `calc(40px + ${colIdx} * (100% - 40px) / 7)`,
+                          width: `calc((100% - 40px) / 7)`, height: PLANNING_HOURS.length * HOUR_HEIGHT, pointerEvents: "none" }}>
+                          {events.map(evt => {
+                            const { top, height } = getEventPosition(evt);
+                            const handleClick = (e) => {
+                              e.stopPropagation();
+                              if (evt._isRecurring) {
+                                setRecurActionPrompt({ event: evt, action: "edit" });
+                              } else {
+                                setEditingEvent({ ...evt, isNew: false });
+                              }
+                            };
+                            return (
+                              <div key={`${evt.id}-${evt._occurrenceDate}`} onClick={handleClick}
+                                style={{ position: "absolute", top, left: 2, right: 2, height,
+                                  background: `${evt.color}22`, borderLeft: `3px solid ${evt.color}`,
+                                  borderRadius: 6, padding: "2px 4px",
+                                  cursor: "pointer", overflow: "hidden", zIndex: 10, pointerEvents: "auto" }}>
+                                <div style={{ fontSize: 9, fontWeight: 700, color: evt.color, lineHeight: 1.2 }}>
+                                  {evt.title}
+                                </div>
+                                {height > 30 && (
+                                  <div style={{ fontSize: 8, color: "#888" }}>
+                                    {evt.startH}:{String(evt.startM).padStart(2,"0")} — {evt.endH}:{String(evt.endM).padStart(2,"0")}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      );
+                    })}
+                    {/* Current time indicator */}
                     {isCurrentWeek && (() => {
                       const todayCol = weekDates.indexOf(today);
                       if (todayCol === -1) return null;
@@ -1367,11 +1550,13 @@ export default function App() {
                   </div>
                   <div style={{ position: "relative", overflowY: "auto", maxHeight: "65vh" }}>
                     {PLANNING_HOURS.map(h => (
-                      <div key={h} className="plan-cell" onClick={() => openNewEvent(selectedDate, h)}
-                        style={{ display: "flex", height: HOUR_HEIGHT, borderTop: "1px solid #111" }}>
+                      <div key={h} className="plan-cell"
+                        onClick={() => openNewEvent(selectedDate, h)}
+                        style={{ display: "flex", height: HOUR_HEIGHT, minHeight: 60, borderTop: "1px solid #111",
+                          cursor: "pointer", position: "relative", zIndex: 1 }}>
                         <div style={{ width: 44, display: "flex", alignItems: "flex-start", justifyContent: "center", paddingTop: 4,
-                          fontSize: 10, color: "#444", fontFamily: "'Space Mono'" }}>{h}:00</div>
-                        <div style={{ flex: 1 }} />
+                          fontSize: 10, color: "#444", fontFamily: "'Space Mono'", pointerEvents: "none" }}>{h}:00</div>
+                        <div style={{ flex: 1, pointerEvents: "none" }} />
                       </div>
                     ))}
                     {getEventsForDate(data.planning, selectedDate).map(evt => renderEventBlock(evt, false))}
@@ -1392,7 +1577,96 @@ export default function App() {
           );
         })()}
 
-        {tab === "food" && (<div className="card"><div style={{ fontSize: 13, fontWeight: 700, marginBottom: 10 }}>🍽️ Plan sèche — 2 130 kcal</div>{MEALS.map(m => { const done = dayData.meals?.[m.id] || false; return (<div key={m.id} className={`ci ${done ? "done" : ""}`} onClick={() => toggleItem("meals", m.id, m.xp)}><div className="cb">{done ? "✓" : ""}</div><span style={{ fontSize: 18 }}>{m.emoji}</span><span style={{ flex: 1, fontSize: 13 }}>{m.label}</span><span className="xp">+{m.xp}</span></div>); })}<div style={{ marginTop: 12, padding: 10, background: "rgba(233,69,96,.06)", borderRadius: 12, fontSize: 12, textAlign: "center" }}>Budget : <span style={{ color: "#ffeb3b", fontWeight: 700, fontFamily: "'Space Mono'" }}>13,27 - 14,21€/jour</span></div></div>)}
+        {tab === "food" && (() => {
+          const ns = getCurrentNutritionStage(data);
+          const { stage, dayInStage, stageInfo, complete, notStarted, daysUntilStart } = ns;
+          const currentMeals = getMealsForStage(stage);
+          const progressPct = notStarted ? 0 : (dayInStage / STAGE_DAYS) * 100;
+          const isRegain = stageInfo.name.includes("REGAIN");
+
+          return (
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+
+              {/* STAGE INDICATOR */}
+              <div className="card" style={{ background: `linear-gradient(145deg, ${stageInfo.color}15, #0d0d24)`, border: `1px solid ${stageInfo.color}40`, textAlign: "center", padding: "20px 16px" }}>
+                <div style={{ fontSize: 11, color: "#888", letterSpacing: 2, fontFamily: "'Space Mono'" }}>ÉTAPE</div>
+                <div style={{ fontSize: 42, fontWeight: 900, fontFamily: "'Space Mono'", color: "#fff" }}>
+                  {stage}<span style={{ fontSize: 20, color: "#888" }}>/4</span>
+                </div>
+                <div style={{ fontSize: 16, fontWeight: 800, marginTop: 4 }}>{stageInfo.emoji} {stageInfo.name}</div>
+                <div style={{ fontSize: 24, fontWeight: 900, fontFamily: "'Space Mono'", color: stageInfo.color, marginTop: 8 }}>
+                  {stageInfo.kcal.toLocaleString("fr-FR")} kcal
+                </div>
+
+                {/* Progress bar or countdown */}
+                {notStarted ? (
+                  <div style={{ marginTop: 12, padding: "10px 16px", background: "rgba(255,235,59,.08)", borderRadius: 12, textAlign: "center" }}>
+                    <div style={{ fontSize: 12, color: "#ffeb3b", fontWeight: 700 }}>Début dans {daysUntilStart} jour{daysUntilStart > 1 ? "s" : ""}</div>
+                    <div style={{ fontSize: 10, color: "#888", marginTop: 2 }}>Lundi 23 février 2026</div>
+                  </div>
+                ) : (
+                  <div style={{ marginTop: 12 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                      <span style={{ fontSize: 10, color: "#888" }}>Jour {dayInStage}/{STAGE_DAYS}</span>
+                      <span style={{ fontSize: 10, color: "#888", fontFamily: "'Space Mono'" }}>{Math.round(progressPct)}%</span>
+                    </div>
+                    <div style={{ height: 6, background: "#0a0a1a", borderRadius: 3, overflow: "hidden" }}>
+                      <div style={{ width: `${Math.min(progressPct, 100)}%`, height: "100%", background: `linear-gradient(90deg, ${stageInfo.color}, ${stageInfo.color}cc)`, borderRadius: 3, transition: "width .5s" }} />
+                    </div>
+                  </div>
+                )}
+
+                {/* Macros */}
+                <div style={{ display: "flex", justifyContent: "space-around", marginTop: 12 }}>
+                  {[{ l: "Glucides", v: stageInfo.macros.glucides, c: "#ffeb3b" }, { l: "Protéines", v: stageInfo.macros.proteines, c: "#e94560" }, { l: "Lipides", v: stageInfo.macros.lipides, c: "#4caf50" }].map((m, i) => (
+                    <div key={i} style={{ textAlign: "center" }}>
+                      <div style={{ fontSize: 16, fontWeight: 800, fontFamily: "'Space Mono'", color: m.c }}>{m.v}</div>
+                      <div style={{ fontSize: 9, color: "#666" }}>{m.l}</div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Change stage button */}
+                <div onClick={() => setShowStagePicker(true)} style={{ marginTop: 12, padding: "6px 16px", borderRadius: 10, fontSize: 11, fontWeight: 600, cursor: "pointer", display: "inline-block", background: "rgba(255,255,255,.06)", color: "#888", border: "1px solid #2a2a4a" }}>
+                  Changer d'étape
+                </div>
+              </div>
+
+              {/* MEAL CHECKLIST */}
+              <div className="card">
+                <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 10 }}>
+                  🍽️ {isRegain ? "Plan regain" : "Plan sèche"} — {stageInfo.kcal.toLocaleString("fr-FR")} kcal
+                </div>
+                {currentMeals.map(m => {
+                  const done = dayData.meals?.[m.id] || false;
+                  return (
+                    <div key={m.id} className={`ci ${done ? "done" : ""}`} onClick={() => toggleItem("meals", m.id, m.xp)}>
+                      <div className="cb">{done ? "✓" : ""}</div>
+                      <span style={{ fontSize: 18 }}>{m.emoji}</span>
+                      <span style={{ flex: 1, fontSize: 13 }}>{m.label}</span>
+                      <span className="xp">+{m.xp}</span>
+                    </div>
+                  );
+                })}
+                <div style={{ marginTop: 12, padding: 10, background: `rgba(${isRegain ? "76,175,80" : "233,69,96"},.06)`, borderRadius: 12, fontSize: 12, textAlign: "center" }}>
+                  Budget : <span style={{ color: "#ffeb3b", fontWeight: 700, fontFamily: "'Space Mono'" }}>{stageInfo.budget}</span>
+                </div>
+              </div>
+
+              {/* CYCLE COMPLETE */}
+              {complete && (
+                <div className="card" style={{ textAlign: "center", padding: 24 }}>
+                  <div style={{ fontSize: 40 }}>🏆</div>
+                  <div style={{ fontSize: 18, fontWeight: 800, marginTop: 8 }}>Cycle terminé !</div>
+                  <div style={{ fontSize: 12, color: "#888", marginTop: 4 }}>Tu as complété les 4 étapes (120 jours)</div>
+                  <div onClick={restartCycle} style={{ marginTop: 16, padding: "10px 24px", borderRadius: 12, fontSize: 13, fontWeight: 700, cursor: "pointer", background: "linear-gradient(135deg,#e94560,#c23152)", color: "#fff" }}>
+                    Recommencer le cycle
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
         {tab === "supps" && (<div style={{ display: "flex", flexDirection: "column", gap: 12 }}><div className="card"><div style={{ fontSize: 13, fontWeight: 700, marginBottom: 10 }}>💊 Suppléments</div>{SUPPS.map(s => { const done = dayData.supps?.[s.id] || false; return (<div key={s.id} className={`ci ${done ? "done" : ""}`} onClick={() => toggleItem("supps", s.id, 5)}><div className="cb">{done ? "✓" : ""}</div><span style={{ fontSize: 18 }}>{s.emoji}</span><span style={{ flex: 1, fontSize: 13 }}>{s.label}</span><span className="xp">+5</span></div>); })}</div><div className="card" style={{ padding: 14 }}><div style={{ fontSize: 12, fontWeight: 700, marginBottom: 8 }}>⏰ Timing</div>{[{ t: "🌅 À jeun", v: "Collagène → jus d'orange" }, { t: "🍳 Petit-déj", v: "D3+K2+E+B+Mg" }, { t: "🥩 Midi", v: "Calcium+vinaigre+Mg" }, { t: "🏋️ Post-train", v: "Whey+Créatine" }, { t: "🌙 Dodo", v: "Taurine+Zinc+Mg" }].map((x, i) => (<div key={i} style={{ display: "flex", gap: 8, padding: "5px 0", fontSize: 11, borderBottom: i < 4 ? "1px solid #1a1a2e" : "none" }}><span style={{ color: "#e94560", fontWeight: 600, minWidth: 90 }}>{x.t}</span><span style={{ color: "#999" }}>{x.v}</span></div>))}</div></div>)}
 
