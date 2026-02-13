@@ -1700,17 +1700,6 @@ export default function App() {
       <div className="content-area" style={{ padding: "0 16px" }}>
 
         {tab === "dashboard" && (<div className="tab-grid" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          {programNotStarted && (
-            <div className="card" style={{ textAlign: "center", padding: "32px 20px", background: "linear-gradient(145deg, rgba(233,69,96,.12), rgba(255,235,59,.06))", border: "1px solid rgba(233,69,96,.3)" }}>
-              <div style={{ fontSize: 48, marginBottom: 12 }}>🚀</div>
-              <div style={{ fontSize: 20, fontWeight: 900, color: "#fff", letterSpacing: 1 }}>DÉBUT DU PROGRAMME</div>
-              <div style={{ fontSize: 64, fontWeight: 900, fontFamily: "'Space Mono'", color: "#e94560", margin: "8px 0" }}>
-                {daysUntilProgram}<span style={{ fontSize: 20, color: "#888" }}> jour{daysUntilProgram > 1 ? "s" : ""}</span>
-              </div>
-              <div style={{ fontSize: 14, color: "#ffeb3b", fontWeight: 700 }}>Lundi 23 Février 2026</div>
-              <div style={{ fontSize: 11, color: "#888", marginTop: 8 }}>Prépare-toi, le voyage Paris → Rome commence bientôt !</div>
-            </div>
-          )}
           <div className="card" style={{ padding: 12 }}><div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>🗺️ Paris → Rome</div><MapSVG xp={data.totalXP} /></div>
           <div className="card" style={{ textAlign: "center", padding: "16px 20px" }}><div style={{ fontSize: 13, fontWeight: 700, marginBottom: 4 }}>👤 Ma transformation</div><div style={{ fontSize: 10, color: "#888", marginBottom: 8 }}>{avatarStage.label}</div><div style={{ animation: "breathe 3s ease infinite" }}><AvatarSVG stage={avatarStage} size={140} /></div><div style={{ display: "flex", justifyContent: "center", gap: 4, marginTop: 8 }}>{AVATAR_STAGES.map((s, i) => (<div key={i} style={{ width: 8, height: 8, borderRadius: 4, background: data.totalXP >= s.min ? "#e94560" : "#1e1e4a", transition: "all .3s" }} />))}</div></div>
           {(() => { const nw = WEEKLY_REWARDS.find(r => !isWeekComplete(data, r.week)); const na = ACHIEVEMENT_REWARDS.find(r => !r.check(data)); const next = nw || na; if (!next) return null; return (<div className="card" style={{ padding: 14, cursor: "pointer", border: "1px solid #2a1a4a" }} onClick={() => setTab("rewards")}><div style={{ display: "flex", alignItems: "center", gap: 12 }}><div style={{ width: 44, height: 44, borderRadius: 12, background: "#111", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22 }}>🔒</div><div style={{ flex: 1 }}><div style={{ fontSize: 11, color: "#ffeb3b", fontWeight: 700 }}>Prochain cadeau</div><div style={{ fontSize: 12, color: "#888", marginTop: 2 }}>{next.condition || `Semaine ${next.week} — Score ≥ 70%`}</div></div><div style={{ fontSize: 18, color: "#444" }}>→</div></div></div>); })()}
