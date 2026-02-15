@@ -307,7 +307,7 @@ export default function App() {
 
   if (!session) return <LoginScreen />;
 
-  const programNotStarted = new Date(getToday()) < new Date(START_DATE);
+  const programNotStarted = false; // was: new Date(getToday()) < new Date(START_DATE);
   const daysUntilProgram = programNotStarted ? Math.ceil((new Date(START_DATE) - new Date(getToday())) / 86400000) : 0;
   const avatarStage = getAvatarStage(data.totalXP);
   const currentCity = getCurrentCity(data.totalXP);
