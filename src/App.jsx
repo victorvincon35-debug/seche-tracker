@@ -595,7 +595,7 @@ export default function App() {
 
       <div className="content-area" style={{ padding: "0 16px" }}>
         {tab === "prepa" && <TabPrepa data={data} save={save} />}
-        {tab === "dashboard" && <TabDashboard data={data} setTab={setTab} avatarStage={avatarStage} currentCity={currentCity} nextCity={nextCity} />}
+        {tab === "dashboard" && <TabDashboard data={data} save={save} setTab={setTab} avatarStage={avatarStage} currentCity={currentCity} nextCity={nextCity} />}
         {tab === "habits" && <TabHabits data={data} dayData={dayData} toggleItem={toggleItem} selectedDate={selectedDate} programNotStarted={programNotStarted} daysUntilProgram={daysUntilProgram} />}
         {tab === "sport" && (
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>

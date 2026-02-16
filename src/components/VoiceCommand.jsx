@@ -72,6 +72,20 @@ Ex: "j'ai fait ma routine dos B" → routine: "B"
 {"action": "log_epargne", "amount": NOMBRE, "category": "salaire|freelance|economies|ventes|autre", "note": "description optionnelle"}
 Ex: "j'ai reçu 1500 euros de salaire" → {"action":"log_epargne","amount":1500,"category":"salaire"}
 
+RENDEZ-VOUS — action "add_event" :
+{"action": "add_event", "title": "nom du RDV", "date": "YYYY-MM-DD", "time": "HH:MM", "description": "optionnel"}
+La date d'aujourd'hui est ${new Date().toISOString().split("T")[0]}. Le jour de la semaine est ${["dimanche","lundi","mardi","mercredi","jeudi","vendredi","samedi"][new Date().getDay()]}.
+Si l'utilisateur dit un jour de la semaine (ex: "jeudi"), calcule la date du prochain jeudi à partir d'aujourd'hui. Si le jour mentionné est aujourd'hui, utilise aujourd'hui. Sinon, prends le prochain occurrence de ce jour.
+Si l'utilisateur dit "demain", prends la date de demain.
+Ex: "j'ai un rendez-vous chez le dentiste jeudi à 14h" → {"action":"add_event","title":"Dentiste","date":"YYYY-MM-DD du prochain jeudi","time":"14:00"}
+"rdv coiffeur demain 10h30" → {"action":"add_event","title":"Coiffeur","date":"date de demain","time":"10:30"}
+
+LISTER RENDEZ-VOUS — action "list_events" :
+{"action": "list_events", "period": "today" ou "week" ou "all"}
+Ex: "quels sont mes rendez-vous aujourd'hui ?" → {"action":"list_events","period":"today"}
+"mes rendez-vous cette semaine" → {"action":"list_events","period":"week"}
+"tous mes rendez-vous" → {"action":"list_events","period":"all"}
+
 NAVIGATION — action "navigate" :
 {"action": "navigate", "tab": "ID"}
 Tabs : dashboard, habits, sport, dos, food, supps, health, stats, weight, epargne, prepa
@@ -335,6 +349,62 @@ export default function VoiceCommand({ data, save, toggleItem, setTab, selectedD
         break;
       }
 
+      case "add_event": {
+        const title = action.title;
+        if (!title) {
+          showToast("Titre manquant pour le rendez-vous");
+          return;
+        }
+        const nd = JSON.parse(JSON.stringify(data));
+        if (!nd.events) nd.events = [];
+        nd.events.push({
+          id: Date.now().toString(36),
+          title: title,
+          date: action.date || new Date().toISOString().split("T")[0],
+          time: action.time || "09:00",
+          description: action.description || "",
+        });
+        save(nd);
+        const dayNames = ["Dim", "Lun", "Mar", "Mer", "Jeu", "Ven", "Sam"];
+        const evDate = new Date(action.date || new Date());
+        showToast("✅ RDV ajouté : " + title + " — " + dayNames[evDate.getDay()] + " " + evDate.getDate() + " à " + (action.time || "09:00"));
+        break;
+      }
+
+      case "list_events": {
+        const evts = data.events || [];
+        const now = new Date().toISOString().split("T")[0];
+        let filtered;
+        let label;
+
+        if (action.period === "today") {
+          filtered = evts.filter(e => e.date === now);
+          label = "aujourd'hui";
+        } else if (action.period === "week") {
+          const weekEnd = new Date();
+          weekEnd.setDate(weekEnd.getDate() + 7);
+          const wEnd = weekEnd.toISOString().split("T")[0];
+          filtered = evts.filter(e => e.date >= now && e.date <= wEnd);
+          label = "cette semaine";
+        } else {
+          filtered = evts.filter(e => e.date >= now);
+          label = "à venir";
+        }
+
+        filtered.sort((a, b) => a.date === b.date ? (a.time || "").localeCompare(b.time || "") : a.date.localeCompare(b.date));
+
+        if (filtered.length === 0) {
+          showToast("📆 Aucun rendez-vous " + label);
+        } else {
+          const list = filtered.slice(0, 5).map(e => {
+            const d = new Date(e.date);
+            return (d.getDate() + "/" + (d.getMonth() + 1) + " " + (e.time || "") + " — " + e.title);
+          }).join("\n");
+          showToast("📆 RDV " + label + " :\n" + list);
+        }
+        break;
+      }
+
       case "navigate": {
         const validTabs = ["prepa", "dashboard", "habits", "sport", "dos", "food", "supps", "health", "stats", "weight", "epargne"];
         const tab = action.tab;
@@ -574,7 +644,7 @@ export default function VoiceCommand({ data, save, toggleItem, setTab, selectedD
           position: "fixed", bottom: 200, left: "50%", transform: "translateX(-50%)",
           background: "rgba(26,26,46,.95)", border: "1px solid #4caf50", borderRadius: 12,
           padding: "10px 20px", maxWidth: "85%", fontSize: 13, color: "#fff",
-          fontFamily: "'Outfit'", fontWeight: 500, zIndex: 97, textAlign: "center",
+          fontFamily: "'Outfit'", fontWeight: 500, zIndex: 97, textAlign: "center", whiteSpace: "pre-wrap",
           boxShadow: "0 4px 20px rgba(0,0,0,.5)",
           animation: "toastIn .3s ease",
         }}>
