@@ -74,7 +74,7 @@ Ex: "j'ai reçu 1500 euros de salaire" → {"action":"log_epargne","amount":1500
 
 NAVIGATION — action "navigate" :
 {"action": "navigate", "tab": "ID"}
-Tabs : dashboard, habits, sport, dos, planning, food, supps, health, stats, weight, epargne, prepa
+Tabs : dashboard, habits, sport, dos, food, supps, health, stats, weight, epargne, prepa
 Ex: "ouvre les stats" → {"action":"navigate","tab":"stats"}
 
 MULTIPLE ACTIONS :
@@ -120,6 +120,7 @@ export default function VoiceCommand({ data, save, toggleItem, setTab, selectedD
   const timeoutRef = useRef(null);
   const toastTimerRef = useRef(null);
   const transcriptTimerRef = useRef(null);
+  const finalTranscriptRef = useRef("");
 
   const SpeechRecognition = typeof window !== "undefined"
     ? window.SpeechRecognition || window.webkitSpeechRecognition
@@ -335,7 +336,7 @@ export default function VoiceCommand({ data, save, toggleItem, setTab, selectedD
       }
 
       case "navigate": {
-        const validTabs = ["prepa", "dashboard", "habits", "sport", "dos", "planning", "food", "supps", "health", "stats", "weight", "epargne"];
+        const validTabs = ["prepa", "dashboard", "habits", "sport", "dos", "food", "supps", "health", "stats", "weight", "epargne"];
         const tab = action.tab;
         if (!validTabs.includes(tab)) {
           showToast("Onglet inconnu : " + tab);
@@ -420,20 +421,40 @@ export default function VoiceCommand({ data, save, toggleItem, setTab, selectedD
 
     const recognition = new SpeechRecognition();
     recognition.lang = "fr-FR";
-    recognition.interimResults = false;
+    recognition.interimResults = true;
     recognition.maxAlternatives = 1;
-    recognition.continuous = false;
+    recognition.continuous = true;
     recognitionRef.current = recognition;
+    finalTranscriptRef.current = "";
+
+    // 5s silence timer — resets on every speech activity
+    const resetSilenceTimer = () => {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = setTimeout(() => {
+        try { recognition.stop(); } catch (e) { /* ignore */ }
+      }, 5000);
+    };
 
     recognition.onstart = () => {
       setStatus("listening");
+      resetSilenceTimer();
     };
 
     recognition.onresult = (event) => {
-      clearTimeout(timeoutRef.current);
-      const text = event.results[0][0].transcript;
-      showTranscript(text);
-      processVoiceCommand(text);
+      let final = "";
+      let interim = "";
+      for (let i = 0; i < event.results.length; i++) {
+        if (event.results[i].isFinal) {
+          final += event.results[i][0].transcript;
+        } else {
+          interim += event.results[i][0].transcript;
+        }
+      }
+      finalTranscriptRef.current = final;
+      // Show live feedback
+      showTranscript(final || interim);
+      // Reset silence timer on any speech
+      resetSilenceTimer();
     };
 
     recognition.onerror = (event) => {
@@ -450,18 +471,16 @@ export default function VoiceCommand({ data, save, toggleItem, setTab, selectedD
 
     recognition.onend = () => {
       clearTimeout(timeoutRef.current);
-      if (status === "listening") {
+      const text = finalTranscriptRef.current.trim();
+      if (text) {
+        showTranscript(text);
+        processVoiceCommand(text);
+      } else {
         setStatus("idle");
       }
     };
 
     recognition.start();
-
-    // 5s silence timeout
-    timeoutRef.current = setTimeout(() => {
-      try { recognition.stop(); } catch (e) { /* ignore */ }
-      setStatus("idle");
-    }, 5000);
   }, [SpeechRecognition, status, processVoiceCommand, showTranscript, showToast]);
 
   const handleClick = useCallback(() => {
