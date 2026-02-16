@@ -35,13 +35,14 @@ export default function TabDashboard({ data, save, setTab, avatarStage, currentC
     if (!nd.planning) nd.planning = {};
     const id = Date.now().toString(36);
     const [h, m] = eventTime.split(":").map(Number);
+    const endTotal = h * 60 + m + 30;
     nd.planning[id] = {
       title: eventTitle.trim(),
       date: eventDate,
       startH: h,
       startM: m,
-      endH: Math.min(h + 1, 23),
-      endM: m,
+      endH: Math.min(Math.floor(endTotal / 60), 23),
+      endM: endTotal % 60,
       color: "#ff9800",
       notes: eventDesc.trim(),
       recurrence: null,

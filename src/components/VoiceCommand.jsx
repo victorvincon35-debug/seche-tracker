@@ -360,13 +360,14 @@ export default function VoiceCommand({ data, save, toggleItem, setTab, selectedD
         const evId = Date.now().toString(36);
         const evTime = action.time || "09:00";
         const [evH, evM] = evTime.split(":").map(Number);
+        const evEndTotal = evH * 60 + evM + 30;
         nd.planning[evId] = {
           title: title,
           date: action.date || new Date().toISOString().split("T")[0],
           startH: evH,
           startM: evM,
-          endH: Math.min(evH + 1, 23),
-          endM: evM,
+          endH: Math.min(Math.floor(evEndTotal / 60), 23),
+          endM: evEndTotal % 60,
           color: "#ff9800",
           notes: action.description || "",
           recurrence: null,
