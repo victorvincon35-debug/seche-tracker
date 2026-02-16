@@ -12,25 +12,40 @@ export default function TabDashboard({ data, save, setTab, avatarStage, currentC
   const [eventTime, setEventTime] = useState("09:00");
   const [eventDesc, setEventDesc] = useState("");
 
-  const events = data.events || [];
   const today = new Date().toISOString().split("T")[0];
 
+  // Read all events from data.planning (single source of truth)
+  const allEvents = Object.entries(data.planning || {}).map(([id, e]) => ({
+    id,
+    title: e.title,
+    date: e.date,
+    time: `${String(e.startH).padStart(2, "0")}:${String(e.startM).padStart(2, "0")}`,
+    description: e.notes || "",
+    color: e.color,
+  }));
+
   // Upcoming events: today + future, sorted chronologically
-  const upcoming = events
+  const upcoming = allEvents
     .filter(e => e.date >= today)
     .sort((a, b) => a.date === b.date ? (a.time || "").localeCompare(b.time || "") : a.date.localeCompare(b.date));
 
   const addEvent = () => {
     if (!eventTitle.trim()) return;
     const nd = JSON.parse(JSON.stringify(data));
-    if (!nd.events) nd.events = [];
-    nd.events.push({
-      id: Date.now().toString(36),
+    if (!nd.planning) nd.planning = {};
+    const id = Date.now().toString(36);
+    const [h, m] = eventTime.split(":").map(Number);
+    nd.planning[id] = {
       title: eventTitle.trim(),
       date: eventDate,
-      time: eventTime,
-      description: eventDesc.trim(),
-    });
+      startH: h,
+      startM: m,
+      endH: Math.min(h + 1, 23),
+      endM: m,
+      color: "#ff9800",
+      notes: eventDesc.trim(),
+      recurrence: null,
+    };
     save(nd);
     setEventTitle("");
     setEventDesc("");
@@ -39,7 +54,7 @@ export default function TabDashboard({ data, save, setTab, avatarStage, currentC
 
   const deleteEvent = (id) => {
     const nd = JSON.parse(JSON.stringify(data));
-    nd.events = (nd.events || []).filter(e => e.id !== id);
+    if (nd.planning) delete nd.planning[id];
     save(nd);
   };
 
@@ -108,7 +123,10 @@ export default function TabDashboard({ data, save, setTab, avatarStage, currentC
                   </div>
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: "#fff" }}>{ev.title}</div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    {ev.color && <div style={{ width: 8, height: 8, borderRadius: 4, background: ev.color, flexShrink: 0 }} />}
+                    <div style={{ fontSize: 13, fontWeight: 600, color: "#fff" }}>{ev.title}</div>
+                  </div>
                   <div style={{ fontSize: 11, color: "#888", marginTop: 2 }}>
                     {ev.time}{ev.description ? " — " + ev.description : ""}
                   </div>

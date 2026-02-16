@@ -88,7 +88,7 @@ Ex: "quels sont mes rendez-vous aujourd'hui ?" → {"action":"list_events","peri
 
 NAVIGATION — action "navigate" :
 {"action": "navigate", "tab": "ID"}
-Tabs : dashboard, habits, sport, dos, food, supps, health, stats, weight, epargne, prepa
+Tabs : dashboard, habits, sport, dos, planning, food, supps, health, stats, weight, epargne, prepa
 Ex: "ouvre les stats" → {"action":"navigate","tab":"stats"}
 
 MULTIPLE ACTIONS :
@@ -356,49 +356,59 @@ export default function VoiceCommand({ data, save, toggleItem, setTab, selectedD
           return;
         }
         const nd = JSON.parse(JSON.stringify(data));
-        if (!nd.events) nd.events = [];
-        nd.events.push({
-          id: Date.now().toString(36),
+        if (!nd.planning) nd.planning = {};
+        const evId = Date.now().toString(36);
+        const evTime = action.time || "09:00";
+        const [evH, evM] = evTime.split(":").map(Number);
+        nd.planning[evId] = {
           title: title,
           date: action.date || new Date().toISOString().split("T")[0],
-          time: action.time || "09:00",
-          description: action.description || "",
-        });
+          startH: evH,
+          startM: evM,
+          endH: Math.min(evH + 1, 23),
+          endM: evM,
+          color: "#ff9800",
+          notes: action.description || "",
+          recurrence: null,
+        };
         save(nd);
         const dayNames = ["Dim", "Lun", "Mar", "Mer", "Jeu", "Ven", "Sam"];
         const evDate = new Date(action.date || new Date());
-        showToast("✅ RDV ajouté : " + title + " — " + dayNames[evDate.getDay()] + " " + evDate.getDate() + " à " + (action.time || "09:00"));
+        showToast("✅ RDV ajouté : " + title + " — " + dayNames[evDate.getDay()] + " " + evDate.getDate() + " à " + evTime);
         break;
       }
 
       case "list_events": {
-        const evts = data.events || [];
+        const planning = data.planning || {};
         const now = new Date().toISOString().split("T")[0];
-        let filtered;
+        let evts = Object.entries(planning).map(([id, e]) => ({
+          id, title: e.title, date: e.date,
+          time: `${String(e.startH).padStart(2, "0")}:${String(e.startM).padStart(2, "0")}`,
+        }));
         let label;
 
         if (action.period === "today") {
-          filtered = evts.filter(e => e.date === now);
+          evts = evts.filter(e => e.date === now);
           label = "aujourd'hui";
         } else if (action.period === "week") {
           const weekEnd = new Date();
           weekEnd.setDate(weekEnd.getDate() + 7);
           const wEnd = weekEnd.toISOString().split("T")[0];
-          filtered = evts.filter(e => e.date >= now && e.date <= wEnd);
+          evts = evts.filter(e => e.date >= now && e.date <= wEnd);
           label = "cette semaine";
         } else {
-          filtered = evts.filter(e => e.date >= now);
+          evts = evts.filter(e => e.date >= now);
           label = "à venir";
         }
 
-        filtered.sort((a, b) => a.date === b.date ? (a.time || "").localeCompare(b.time || "") : a.date.localeCompare(b.date));
+        evts.sort((a, b) => a.date === b.date ? a.time.localeCompare(b.time) : a.date.localeCompare(b.date));
 
-        if (filtered.length === 0) {
+        if (evts.length === 0) {
           showToast("📆 Aucun rendez-vous " + label);
         } else {
-          const list = filtered.slice(0, 5).map(e => {
+          const list = evts.slice(0, 5).map(e => {
             const d = new Date(e.date);
-            return (d.getDate() + "/" + (d.getMonth() + 1) + " " + (e.time || "") + " — " + e.title);
+            return (d.getDate() + "/" + (d.getMonth() + 1) + " " + e.time + " — " + e.title);
           }).join("\n");
           showToast("📆 RDV " + label + " :\n" + list);
         }
@@ -406,7 +416,7 @@ export default function VoiceCommand({ data, save, toggleItem, setTab, selectedD
       }
 
       case "navigate": {
-        const validTabs = ["prepa", "dashboard", "habits", "sport", "dos", "food", "supps", "health", "stats", "weight", "epargne"];
+        const validTabs = ["prepa", "dashboard", "habits", "sport", "dos", "planning", "food", "supps", "health", "stats", "weight", "epargne"];
         const tab = action.tab;
         if (!validTabs.includes(tab)) {
           showToast("Onglet inconnu : " + tab);
