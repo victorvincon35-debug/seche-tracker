@@ -37,9 +37,12 @@ export function doesRecur(event, dateStr) {
   if (dateStr < event.date) return false;
   if (dateStr === event.date) return false;
   const dow = new Date(dateStr).getDay();
+  const daysDiff = Math.round((new Date(dateStr) - new Date(event.date)) / 86400000);
   switch (event.recurrence.type) {
     case "daily": return true;
     case "weekly": return dow === new Date(event.date).getDay();
+    case "biweekly": return dow === new Date(event.date).getDay() && daysDiff % 14 < 7;
+    case "monthly": return new Date(dateStr).getDate() === new Date(event.date).getDate();
     case "weekdays": return dow >= 1 && dow <= 5;
     case "custom": return (event.recurrence.days || []).includes(dow);
     default: return false;

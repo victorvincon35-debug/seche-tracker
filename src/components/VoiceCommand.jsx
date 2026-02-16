@@ -73,18 +73,28 @@ Ex: "j'ai fait ma routine dos B" → routine: "B"
 Ex: "j'ai reçu 1500 euros de salaire" → {"action":"log_epargne","amount":1500,"category":"salaire"}
 
 RENDEZ-VOUS — action "add_event" :
-{"action": "add_event", "title": "nom du RDV", "date": "YYYY-MM-DD", "time": "HH:MM", "duration": MINUTES, "description": "optionnel"}
+{"action": "add_event", "title": "nom du RDV", "date": "YYYY-MM-DD", "time": "HH:MM", "duration": MINUTES, "recurrence": "none|daily|weekly|biweekly|monthly", "description": "optionnel"}
 "duration" est la durée en minutes. Règles :
 - Si l'utilisateur dit une durée ("1h", "30 min", "2h30") → convertis en minutes (60, 30, 150)
 - Si l'utilisateur dit "de Xh à Yh" → calcule la différence en minutes ("de 10h30 à 11h" → 30, "de 14h à 16h" → 120)
 - Si l'utilisateur ne précise PAS de durée → duration: 60 (1h par défaut)
+"recurrence" : type de récurrence.
+- "none" = pas de répétition (par défaut si non précisé)
+- "daily" = tous les jours
+- "weekly" = toutes les semaines (même jour)
+- "biweekly" = toutes les 2 semaines
+- "monthly" = tous les mois (même date)
+Si l'utilisateur dit "tous les jours", "chaque jour" → "daily"
+Si l'utilisateur dit "toutes les semaines", "chaque semaine", "tous les vendredis", "chaque lundi" → "weekly" (la date doit tomber sur le bon jour)
+Si l'utilisateur dit "toutes les 2 semaines" → "biweekly"
+Si l'utilisateur dit "tous les mois", "chaque mois" → "monthly"
 La date d'aujourd'hui est ${new Date().toISOString().split("T")[0]}. Le jour de la semaine est ${["dimanche","lundi","mardi","mercredi","jeudi","vendredi","samedi"][new Date().getDay()]}.
 Si l'utilisateur dit un jour de la semaine (ex: "jeudi"), calcule la date du prochain jeudi à partir d'aujourd'hui. Si le jour mentionné est aujourd'hui, utilise aujourd'hui. Sinon, prends le prochain occurrence de ce jour.
 Si l'utilisateur dit "demain", prends la date de demain.
-Ex: "rdv dentiste jeudi à 14h pendant 30 min" → {"action":"add_event","title":"Dentiste","date":"...","time":"14:00","duration":30}
-"rdv coiffeur demain de 10h30 à 11h" → {"action":"add_event","title":"Coiffeur","date":"...","time":"10:30","duration":30}
-"rdv médecin lundi à 9h" → {"action":"add_event","title":"Médecin","date":"...","time":"09:00","duration":60}
-"réunion mardi de 14h à 16h" → {"action":"add_event","title":"Réunion","date":"...","time":"14:00","duration":120}
+Ex: "rdv dentiste jeudi à 14h pendant 30 min" → {"action":"add_event","title":"Dentiste","date":"...","time":"14:00","duration":30,"recurrence":"none"}
+"séance psy tous les vendredis à 14h 1h" → {"action":"add_event","title":"Séance psy","date":"date du prochain vendredi","time":"14:00","duration":60,"recurrence":"weekly"}
+"sport tous les jours à 8h" → {"action":"add_event","title":"Sport","date":"date d'aujourd'hui","time":"08:00","duration":60,"recurrence":"daily"}
+"réunion toutes les 2 semaines mardi 10h" → {"action":"add_event","title":"Réunion","date":"date du prochain mardi","time":"10:00","duration":60,"recurrence":"biweekly"}
 
 LISTER RENDEZ-VOUS — action "list_events" :
 {"action": "list_events", "period": "today" ou "week" ou "all"}
@@ -377,12 +387,14 @@ export default function VoiceCommand({ data, save, toggleItem, setTab, selectedD
           endM: evEndTotal % 60,
           color: "#ff9800",
           notes: action.description || "",
-          recurrence: null,
+          recurrence: action.recurrence && action.recurrence !== "none" ? { type: action.recurrence } : null,
         };
         save(nd);
         const dayNames = ["Dim", "Lun", "Mar", "Mer", "Jeu", "Ven", "Sam"];
         const evDate = new Date(action.date || new Date());
-        showToast("✅ RDV ajouté : " + title + " — " + dayNames[evDate.getDay()] + " " + evDate.getDate() + " à " + evTime);
+        const recLabels = { daily: " (tous les jours)", weekly: " (toutes les semaines)", biweekly: " (toutes les 2 sem.)", monthly: " (tous les mois)" };
+        const recLabel = recLabels[action.recurrence] || "";
+        showToast("✅ RDV ajouté : " + title + " — " + dayNames[evDate.getDay()] + " " + evDate.getDate() + " à " + evTime + recLabel);
         break;
       }
 

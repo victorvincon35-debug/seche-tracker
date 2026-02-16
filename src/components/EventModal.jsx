@@ -113,7 +113,9 @@ export default function EventModal({ event, onSave, onDelete, onClose }) {
               style={{ ...selectStyle, width: "100%", marginBottom: recurrenceType === "custom" ? 8 : 0 }}>
               <option value="none">Ne pas répéter</option>
               <option value="daily">Tous les jours</option>
-              <option value="weekly">Chaque semaine le {weeklyDayLabel}</option>
+              <option value="weekly">Toutes les semaines ({weeklyDayLabel})</option>
+              <option value="biweekly">Toutes les 2 semaines ({weeklyDayLabel})</option>
+              <option value="monthly">Tous les mois</option>
               <option value="weekdays">Du lundi au vendredi</option>
               <option value="custom">Personnalisé</option>
             </select>
