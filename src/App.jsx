@@ -12,7 +12,7 @@ import { SPORT_DAYS } from "./constants/sport.js";
 import {
   STORAGE_KEY, START_DATE, TOTAL_DAYS,
   getToday, getDayNumber, getWeekNumber, getAvatarStage, getCurrentCity, getNextCity,
-  defaultData, migrateSuppsV2, migrateFoodPlan, isMonday,
+  getMonday, defaultData, migrateSuppsV2, migrateFoodPlan, isMonday,
 } from "./utils/helpers.js";
 import { ACHIEVEMENT_REWARDS } from "./utils/scoring.js";
 
@@ -27,6 +27,7 @@ import VoiceCommand from "./components/VoiceCommand.jsx";
 import TabDashboard from "./tabs/TabDashboard.jsx";
 import TabHabits from "./tabs/TabHabits.jsx";
 import TabSport from "./tabs/TabSport.jsx";
+import TabPlanning from "./tabs/TabPlanning.jsx";
 import TabFood from "./tabs/TabFood.jsx";
 import TabSupps from "./tabs/TabSupps.jsx";
 import TabHealth from "./tabs/TabHealth.jsx";
@@ -51,6 +52,8 @@ export default function App() {
   const [timerRunning, setTimerRunning] = useState(false);
   const [timerPreset, setTimerPreset] = useState(90);
   const timerRef = useRef(null);
+  const [planWeekStart, setPlanWeekStart] = useState(() => getMonday(getToday()));
+  const [planViewMode, setPlanViewMode] = useState("day");
   const [editingEvent, setEditingEvent] = useState(null);
   const [recurActionPrompt, setRecurActionPrompt] = useState(null);
   const [showSuppInfo, setShowSuppInfo] = useState(null);
@@ -279,6 +282,11 @@ export default function App() {
     setRecurActionPrompt(null);
   }, [data, save]);
 
+  const navigatePlanWeek = useCallback((dir) => {
+    const d = new Date(planWeekStart);
+    d.setDate(d.getDate() + dir * 7);
+    setPlanWeekStart(d.toISOString().split("T")[0]);
+  }, [planWeekStart]);
 
   function calcStreak(d) {
     let streak = 0; const today = new Date(getToday());
@@ -319,6 +327,7 @@ export default function App() {
     { id: "habits", label: "✅", name: "Habitudes" },
     { id: "sport", label: "💪", name: "Sport" },
     { id: "dos", label: "🔙", name: "Dos" },
+    { id: "planning", label: "📅", name: "Plan" },
     { id: "food", label: "🍽️", name: "Repas" },
     { id: "supps", label: "💊", name: "Suppl." },
     { id: "health", label: "🩺", name: "Santé" },
@@ -611,6 +620,7 @@ export default function App() {
           </div>
         )}
         {tab === "dos" && <TabDos data={data} save={save} selectedDate={selectedDate} />}
+        {tab === "planning" && <TabPlanning data={data} selectedDate={selectedDate} setSelectedDate={setSelectedDate} planWeekStart={planWeekStart} setPlanWeekStart={setPlanWeekStart} planViewMode={planViewMode} setPlanViewMode={setPlanViewMode} setEditingEvent={setEditingEvent} setRecurActionPrompt={setRecurActionPrompt} navigatePlanWeek={navigatePlanWeek} />}
         {tab === "food" && <TabFood data={data} save={save} dayData={dayData} selectedDate={selectedDate} toggleItem={toggleItem} />}
         {tab === "supps" && <TabSupps data={data} dayData={dayData} toggleItem={toggleItem} setShowSuppInfo={setShowSuppInfo} setReapproEdit={setReapproEdit} />}
         {tab === "health" && <TabHealth dayData={dayData} weekData={weekData} selectedDate={selectedDate} setSymptom={setSymptom} setNaturo={setNaturo} setTemp={setTemp} programNotStarted={programNotStarted} daysUntilProgram={daysUntilProgram} />}
