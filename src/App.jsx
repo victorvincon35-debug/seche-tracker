@@ -21,6 +21,7 @@ import LoginScreen from "./components/LoginScreen.jsx";
 import RestTimer from "./components/RestTimer.jsx";
 import EventModal from "./components/EventModal.jsx";
 import ChatWindow from "./components/ChatWindow.jsx";
+import VoiceCommand from "./components/VoiceCommand.jsx";
 
 // Tabs
 import TabDashboard from "./tabs/TabDashboard.jsx";
@@ -632,6 +633,7 @@ export default function App() {
 
       {/* CHAT AI */}
       <ChatWindow data={data} save={save} />
+      <VoiceCommand data={data} save={save} toggleItem={toggleItem} setTab={setTab} selectedDate={selectedDate} />
 
       {/* BOTTOM NAV */}
       <div className="nav-outer" style={{ position: "fixed", bottom: 0, left: 0, right: 0, background: "linear-gradient(0deg,#0a0a1a 60%,transparent)", padding: "20px 4px max(env(safe-area-inset-bottom, 6px), 6px)", zIndex: 100 }}>
