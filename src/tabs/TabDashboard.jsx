@@ -10,6 +10,7 @@ export default function TabDashboard({ data, save, setTab, avatarStage, currentC
   const [eventTitle, setEventTitle] = useState("");
   const [eventDate, setEventDate] = useState(new Date().toISOString().split("T")[0]);
   const [eventTime, setEventTime] = useState("09:00");
+  const [eventDuration, setEventDuration] = useState(60);
   const [eventDesc, setEventDesc] = useState("");
 
   const today = new Date().toISOString().split("T")[0];
@@ -20,6 +21,7 @@ export default function TabDashboard({ data, save, setTab, avatarStage, currentC
     title: e.title,
     date: e.date,
     time: `${String(e.startH).padStart(2, "0")}:${String(e.startM).padStart(2, "0")}`,
+    endTime: `${String(e.endH).padStart(2, "0")}:${String(e.endM).padStart(2, "0")}`,
     description: e.notes || "",
     color: e.color,
   }));
@@ -35,7 +37,7 @@ export default function TabDashboard({ data, save, setTab, avatarStage, currentC
     if (!nd.planning) nd.planning = {};
     const id = Date.now().toString(36);
     const [h, m] = eventTime.split(":").map(Number);
-    const endTotal = h * 60 + m + 30;
+    const endTotal = h * 60 + m + eventDuration;
     nd.planning[id] = {
       title: eventTitle.trim(),
       date: eventDate,
@@ -95,6 +97,19 @@ export default function TabDashboard({ data, save, setTab, avatarStage, currentC
               <input type="time" value={eventTime} onChange={e => setEventTime(e.target.value)}
                 style={{ width: 100, padding: "8px 10px", borderRadius: 8, background: "#1a1a2e", border: "1px solid #2a2a4a", color: "#fff", fontSize: 12, fontFamily: "'Outfit'", outline: "none", boxSizing: "border-box" }} />
             </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+              <div style={{ fontSize: 12, color: "#888" }}>Durée :</div>
+              <select value={eventDuration} onChange={e => setEventDuration(Number(e.target.value))}
+                style={{ flex: 1, padding: "8px 10px", borderRadius: 8, background: "#1a1a2e", border: "1px solid #2a2a4a", color: "#fff", fontSize: 12, fontFamily: "'Outfit'", outline: "none", WebkitAppearance: "none", appearance: "none", boxSizing: "border-box" }}>
+                <option value={15}>15 min</option>
+                <option value={30}>30 min</option>
+                <option value={45}>45 min</option>
+                <option value={60}>1h</option>
+                <option value={90}>1h30</option>
+                <option value={120}>2h</option>
+                <option value={180}>3h</option>
+              </select>
+            </div>
             <input type="text" placeholder="Description (optionnel)" value={eventDesc}
               onChange={e => setEventDesc(e.target.value)}
               style={{ width: "100%", padding: "8px 12px", borderRadius: 8, background: "#1a1a2e", border: "1px solid #2a2a4a", color: "#fff", fontSize: 12, fontFamily: "'Outfit'", outline: "none", marginBottom: 10, boxSizing: "border-box" }} />
@@ -129,7 +144,7 @@ export default function TabDashboard({ data, save, setTab, avatarStage, currentC
                     <div style={{ fontSize: 13, fontWeight: 600, color: "#fff" }}>{ev.title}</div>
                   </div>
                   <div style={{ fontSize: 11, color: "#888", marginTop: 2 }}>
-                    {ev.time}{ev.description ? " — " + ev.description : ""}
+                    {ev.time} — {ev.endTime}{ev.description ? " · " + ev.description : ""}
                   </div>
                 </div>
                 <div onClick={() => deleteEvent(ev.id)}

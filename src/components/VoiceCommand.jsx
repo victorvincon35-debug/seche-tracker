@@ -73,12 +73,18 @@ Ex: "j'ai fait ma routine dos B" → routine: "B"
 Ex: "j'ai reçu 1500 euros de salaire" → {"action":"log_epargne","amount":1500,"category":"salaire"}
 
 RENDEZ-VOUS — action "add_event" :
-{"action": "add_event", "title": "nom du RDV", "date": "YYYY-MM-DD", "time": "HH:MM", "description": "optionnel"}
+{"action": "add_event", "title": "nom du RDV", "date": "YYYY-MM-DD", "time": "HH:MM", "duration": MINUTES, "description": "optionnel"}
+"duration" est la durée en minutes. Règles :
+- Si l'utilisateur dit une durée ("1h", "30 min", "2h30") → convertis en minutes (60, 30, 150)
+- Si l'utilisateur dit "de Xh à Yh" → calcule la différence en minutes ("de 10h30 à 11h" → 30, "de 14h à 16h" → 120)
+- Si l'utilisateur ne précise PAS de durée → duration: 60 (1h par défaut)
 La date d'aujourd'hui est ${new Date().toISOString().split("T")[0]}. Le jour de la semaine est ${["dimanche","lundi","mardi","mercredi","jeudi","vendredi","samedi"][new Date().getDay()]}.
 Si l'utilisateur dit un jour de la semaine (ex: "jeudi"), calcule la date du prochain jeudi à partir d'aujourd'hui. Si le jour mentionné est aujourd'hui, utilise aujourd'hui. Sinon, prends le prochain occurrence de ce jour.
 Si l'utilisateur dit "demain", prends la date de demain.
-Ex: "j'ai un rendez-vous chez le dentiste jeudi à 14h" → {"action":"add_event","title":"Dentiste","date":"YYYY-MM-DD du prochain jeudi","time":"14:00"}
-"rdv coiffeur demain 10h30" → {"action":"add_event","title":"Coiffeur","date":"date de demain","time":"10:30"}
+Ex: "rdv dentiste jeudi à 14h pendant 30 min" → {"action":"add_event","title":"Dentiste","date":"...","time":"14:00","duration":30}
+"rdv coiffeur demain de 10h30 à 11h" → {"action":"add_event","title":"Coiffeur","date":"...","time":"10:30","duration":30}
+"rdv médecin lundi à 9h" → {"action":"add_event","title":"Médecin","date":"...","time":"09:00","duration":60}
+"réunion mardi de 14h à 16h" → {"action":"add_event","title":"Réunion","date":"...","time":"14:00","duration":120}
 
 LISTER RENDEZ-VOUS — action "list_events" :
 {"action": "list_events", "period": "today" ou "week" ou "all"}
@@ -360,7 +366,8 @@ export default function VoiceCommand({ data, save, toggleItem, setTab, selectedD
         const evId = Date.now().toString(36);
         const evTime = action.time || "09:00";
         const [evH, evM] = evTime.split(":").map(Number);
-        const evEndTotal = evH * 60 + evM + 30;
+        const duration = (typeof action.duration === "number" && action.duration > 0) ? action.duration : 60;
+        const evEndTotal = evH * 60 + evM + duration;
         nd.planning[evId] = {
           title: title,
           date: action.date || new Date().toISOString().split("T")[0],
