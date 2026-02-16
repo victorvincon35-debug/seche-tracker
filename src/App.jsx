@@ -12,7 +12,7 @@ import { SPORT_DAYS } from "./constants/sport.js";
 import {
   STORAGE_KEY, START_DATE, TOTAL_DAYS,
   getToday, getDayNumber, getWeekNumber, getAvatarStage, getCurrentCity, getNextCity,
-  getMonday, defaultData, migrateSuppsV2, isMonday,
+  getMonday, defaultData, migrateSuppsV2, migrateFoodPlan, isMonday,
 } from "./utils/helpers.js";
 import { getWeekAvgScore, isWeekComplete, ACHIEVEMENT_REWARDS } from "./utils/scoring.js";
 
@@ -81,6 +81,7 @@ export default function App() {
       d.nutrition = { currentStage: 1, stageStartDate: "2026-02-23", cycleComplete: false };
     }
     d = migrateSuppsV2(d);
+    d = migrateFoodPlan(d);
     storage.set(STORAGE_KEY, d);
     setData(d);
     setLoading(false);
@@ -94,7 +95,7 @@ export default function App() {
         if (!synced.planning && data.planning && Object.keys(data.planning).length > 0) {
           synced.planning = data.planning;
         }
-        const migrated = migrateSuppsV2(synced);
+        const migrated = migrateFoodPlan(migrateSuppsV2(synced));
         storage.set(STORAGE_KEY, migrated);
         setData(migrated);
       }
@@ -626,7 +627,7 @@ export default function App() {
         )}
         {tab === "dos" && <TabDos data={data} save={save} selectedDate={selectedDate} />}
         {tab === "planning" && <TabPlanning data={data} selectedDate={selectedDate} setSelectedDate={setSelectedDate} planWeekStart={planWeekStart} setPlanWeekStart={setPlanWeekStart} planViewMode={planViewMode} setPlanViewMode={setPlanViewMode} setEditingEvent={setEditingEvent} setRecurActionPrompt={setRecurActionPrompt} navigatePlanWeek={navigatePlanWeek} />}
-        {tab === "food" && <TabFood dayData={dayData} toggleItem={toggleItem} />}
+        {tab === "food" && <TabFood data={data} save={save} dayData={dayData} selectedDate={selectedDate} toggleItem={toggleItem} />}
         {tab === "supps" && <TabSupps data={data} dayData={dayData} toggleItem={toggleItem} setShowSuppInfo={setShowSuppInfo} setReapproEdit={setReapproEdit} />}
         {tab === "health" && <TabHealth dayData={dayData} weekData={weekData} selectedDate={selectedDate} setSymptom={setSymptom} setNaturo={setNaturo} setTemp={setTemp} programNotStarted={programNotStarted} daysUntilProgram={daysUntilProgram} />}
         {tab === "rewards" && <TabRewards data={data} markRewardSeen={markRewardSeen} unlockedCount={unlockedCount} totalRewards={totalRewards} />}

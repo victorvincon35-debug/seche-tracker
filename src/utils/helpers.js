@@ -1,5 +1,5 @@
 import { CITIES, AVATAR_STAGES } from "../constants/cities.js";
-import { STAGE_DAYS, NUTRITION_STAGES } from "../constants/nutrition.js";
+import { STAGE_DAYS, NUTRITION_STAGES, FOOD_PLAN, FOOD_CATEGORIES, FOOD_TRACKING } from "../constants/nutrition.js";
 import { HOUR_HEIGHT } from "../constants/planning.js";
 
 export const STORAGE_KEY = "seche-tracker-v5";
@@ -103,6 +103,73 @@ export function migrateSuppsV2(d) {
   if (!nd._migrations) nd._migrations = {};
   nd._migrations.supps_v2 = true;
   if (!nd.reappro) nd.reappro = {};
+  return nd;
+}
+
+export function migrateFoodPlan(d) {
+  if (d.foodPlan) return d;
+  const nd = JSON.parse(JSON.stringify(d));
+
+  // Build flat items map from FOOD_CATEGORIES + FOOD_TRACKING
+  const items = {};
+  FOOD_CATEGORIES.forEach(cat => {
+    cat.items.forEach(item => {
+      const t = FOOD_TRACKING[item.id];
+      items[item.id] = {
+        id: item.id,
+        label: item.label,
+        emoji: item.emoji,
+        xp: item.xp,
+        type: t.type || "bar",
+        max: t.max || 1,
+        unit: t.unit || "",
+        unitPlural: t.unitPlural || "",
+        perUnit: t.perUnit || null,
+        buttons: t.buttons || [],
+        macros: { glucides: t.macros.glucides || 0, proteines: t.macros.proteines || 0, lipides: t.macros.lipides || 0 },
+        qtyLabel: item.qty,
+        macroLabel: item.macro,
+        price: { min: item.priceMin, max: item.priceMax },
+      };
+    });
+  });
+
+  // Build categories
+  const categories = FOOD_CATEGORIES.map(cat => ({
+    id: cat.id,
+    label: cat.label,
+    target: cat.target || "",
+    color: cat.color,
+    emoji: cat.emoji,
+    note: cat.note || "",
+    itemIds: cat.items.map(it => it.id),
+  }));
+
+  nd.foodPlan = {
+    name: "Plan Sèche 2300 kcal",
+    startDate: FOOD_PLAN.startDate,
+    totalDays: FOOD_PLAN.totalDays,
+    targets: {
+      kcal: FOOD_PLAN.kcal,
+      glucides: FOOD_PLAN.macros.glucides,
+      proteines: FOOD_PLAN.macros.proteines,
+      lipides: FOOD_PLAN.macros.lipides,
+    },
+    budget: { perDay: { min: FOOD_PLAN.pricePerDay.min, max: FOOD_PLAN.pricePerDay.max } },
+    categories,
+    items,
+  };
+
+  // Save as first template
+  nd.foodTemplates = [{
+    id: "tpl_default",
+    name: "Plan Sèche 2300 kcal",
+    createdAt: new Date().toISOString(),
+    plan: JSON.parse(JSON.stringify(nd.foodPlan)),
+  }];
+
+  if (!nd._migrations) nd._migrations = {};
+  nd._migrations.food_plan_v1 = true;
   return nd;
 }
 
