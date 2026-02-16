@@ -1,10 +1,8 @@
 export const HABITS = [
   { id: "respiration", label: "Respiration / CO2", emoji: "🫁", xp: 15 },
-  { id: "meditation", label: "Méditation", emoji: "🧘", xp: 15 },
+  { id: "qi_gong", label: "Qi Gong", emoji: "🧘", xp: 15 },
   { id: "steps", label: "12 000 pas", emoji: "🚶", xp: 20 },
   { id: "sport", label: "Sport 1h", emoji: "🏋️", xp: 30 },
-  { id: "souplesse", label: "Souplesse", emoji: "🤸", xp: 15 },
-  { id: "journaling", label: "Journaling", emoji: "📓", xp: 10 },
   { id: "rigoler", label: "Rigoler / s'amuser", emoji: "😂", xp: 10 },
   { id: "social", label: "Câlins / liens sociaux", emoji: "🤗", xp: 10 },
   { id: "noir_lire", label: "Noir + lire avant dodo", emoji: "📖", xp: 10 },

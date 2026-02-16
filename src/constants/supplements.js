@@ -29,9 +29,8 @@ export const SUPPS_DETAILED = [
 
 export const SUPPS = SUPPS_DETAILED;
 
-export function getSuppsForStage(stageNum) {
-  const isRegain = stageNum === 1 || stageNum === 3;
-  return isRegain ? SUPPS_DETAILED.filter(s => !s.secheOnly) : SUPPS_DETAILED;
+export function getSuppsForStage() {
+  return SUPPS_DETAILED;
 }
 
 export function getSuppsGrouped(stageNum) {

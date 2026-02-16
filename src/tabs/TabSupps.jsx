@@ -37,13 +37,12 @@ function getReapproAlerts(data) {
 
 export default function TabSupps({ data, dayData, toggleItem, setShowSuppInfo, setReapproEdit }) {
   const ns = getCurrentNutritionStage();
-  const isRegain = ns.stage === 1 || ns.stage === 3;
-  const groups = getSuppsGrouped(ns.stage);
-  const applicableSupps = getSuppsForStage(ns.stage);
+  const groups = getSuppsGrouped();
+  const applicableSupps = getSuppsForStage();
   const checkedCount = applicableSupps.filter(s => dayData.supps?.[s.id]).length;
   const totalCount = applicableSupps.length;
   const suppsStreak = calcSuppsStreak(data);
-  const budget = getSuppsBudget(ns.stage);
+  const budget = getSuppsBudget();
   const reapproAlerts = getReapproAlerts(data);
 
   return (
@@ -51,8 +50,8 @@ export default function TabSupps({ data, dayData, toggleItem, setShowSuppInfo, s
 
       {/* PROGRESS HEADER */}
       <div className="card" style={{ textAlign: "center", padding: "16px 16px 20px" }}>
-        <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8, color: ns.stageInfo.color }}>
-          ÉTAPE {ns.stage}/4 — {ns.stageInfo.emoji} {ns.stageInfo.name}
+        <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8, color: "#e94560" }}>
+          🔴 SÈCHE — Jour {ns.dayInStage > 0 ? ns.dayInStage : 1}/120
         </div>
         <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
           <span style={{ fontSize: 11, color: "#888" }}>{checkedCount}/{totalCount} pris</span>
@@ -112,7 +111,7 @@ export default function TabSupps({ data, dayData, toggleItem, setShowSuppInfo, s
           {budget.toFixed(0)}€<span style={{ fontSize: 12, color: "#888" }}>/mois</span>
         </div>
         <div style={{ fontSize: 10, color: "#666", marginTop: 2 }}>
-          {isRegain ? "Regain (sans whey)" : "Sèche (avec whey)"}
+          Sèche (avec whey)
         </div>
       </div>
 

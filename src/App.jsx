@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase, storage, syncOnLoad, debouncedPush } from "./supabase.js";
 
 // Constants
-import { CITIES, AVATAR_STAGES, WEEKLY_REWARDS } from "./constants/cities.js";
+import { CITIES, AVATAR_STAGES } from "./constants/cities.js";
 import { HABITS } from "./constants/habits.js";
 import { getMealsForStage } from "./constants/nutrition.js";
 import { SUPPS_DETAILED, SUPP_TIMING_GROUPS, getSuppsForStage } from "./constants/supplements.js";
@@ -14,7 +14,7 @@ import {
   getToday, getDayNumber, getWeekNumber, getAvatarStage, getCurrentCity, getNextCity,
   getMonday, defaultData, migrateSuppsV2, migrateFoodPlan, isMonday,
 } from "./utils/helpers.js";
-import { getWeekAvgScore, isWeekComplete, ACHIEVEMENT_REWARDS } from "./utils/scoring.js";
+import { ACHIEVEMENT_REWARDS } from "./utils/scoring.js";
 
 // Components
 import LoginScreen from "./components/LoginScreen.jsx";
@@ -30,7 +30,6 @@ import TabPlanning from "./tabs/TabPlanning.jsx";
 import TabFood from "./tabs/TabFood.jsx";
 import TabSupps from "./tabs/TabSupps.jsx";
 import TabHealth from "./tabs/TabHealth.jsx";
-import TabRewards from "./tabs/TabRewards.jsx";
 import TabStats from "./tabs/TabStats.jsx";
 import TabWeight from "./tabs/TabWeight.jsx";
 import TabPrepa from "./tabs/TabPrepa.jsx";
@@ -301,27 +300,22 @@ export default function App() {
     return total > 0 ? Math.round((done / total) * 100) : 0;
   }
 
-  function countUnlocked() { let n = 0; WEEKLY_REWARDS.forEach(r => { if (isWeekComplete(data, r.week)) n++; }); ACHIEVEMENT_REWARDS.forEach(r => { if (r.check(data)) n++; }); return n; }
-  function countNew() { let n = 0; ACHIEVEMENT_REWARDS.forEach(r => { if (r.check(data) && !(data.seenRewards || []).includes(r.id)) n++; }); return n; }
 
   if (authLoading || loading || !data) return (<div style={{ background: "#0a0a1a", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Outfit'" }}><div style={{ color: "#e94560", fontSize: 24 }}>✈️</div></div>);
 
   if (!session) return <LoginScreen />;
 
-  const programNotStarted = false; // was: new Date(getToday()) < new Date(START_DATE);
+  const programNotStarted = false;
   const daysUntilProgram = programNotStarted ? Math.ceil((new Date(START_DATE) - new Date(getToday())) / 86400000) : 0;
   const avatarStage = getAvatarStage(data.totalXP);
   const currentCity = getCurrentCity(data.totalXP);
   const nextCity = getNextCity(data.totalXP);
   const streak = programNotStarted ? 0 : calcStreak(data);
-  const dayNum = Math.max(1, Math.min(getDayNumber(getToday()), 30));
+  const dayNum = Math.max(1, Math.min(getDayNumber(getToday()), TOTAL_DAYS));
   const dayScore = programNotStarted ? 0 : getDayScore(selectedDate);
   const dayData = data.days[selectedDate] || {};
   const weekKey = `w${getWeekNumber(selectedDate)}`;
   const weekData = data.weeks[weekKey] || {};
-  const unlockedCount = programNotStarted ? 0 : countUnlocked();
-  const newCount = programNotStarted ? 0 : countNew();
-  const totalRewards = WEEKLY_REWARDS.length + ACHIEVEMENT_REWARDS.length;
 
   const navigateDay = (dir) => { const d = new Date(selectedDate); d.setDate(d.getDate() + dir); setSelectedDate(d.toISOString().split("T")[0]); };
   const dateLabel = (() => { const d = new Date(selectedDate); return `${["Dim", "Lun", "Mar", "Mer", "Jeu", "Ven", "Sam"][d.getDay()]} ${d.getDate()} ${["Jan", "Fév", "Mar", "Avr", "Mai", "Jun", "Jul", "Aoû", "Sep", "Oct", "Nov", "Déc"][d.getMonth()]}`; })();
@@ -336,7 +330,6 @@ export default function App() {
     { id: "food", label: "🍽️", name: "Repas" },
     { id: "supps", label: "💊", name: "Suppl." },
     { id: "health", label: "🩺", name: "Santé" },
-    { id: "rewards", label: "🎁", name: "Cadeaux", badge: newCount },
     { id: "stats", label: "📊", name: "Stats" },
     { id: "weight", label: "⚖️", name: "Poids" },
     { id: "epargne", label: "💰", name: "Épargne" },
@@ -557,7 +550,7 @@ export default function App() {
             <div style={{ fontSize: 20, fontWeight: 800 }}>🇮🇹 Rome avec ma copine</div>
           </div>
           <div style={{ textAlign: "right" }}>
-            <div style={{ fontSize: 28, fontWeight: 900, fontFamily: "'Space Mono'", color: "#ffeb3b" }}>{dayNum}<span style={{ fontSize: 13, color: "rgba(255,255,255,.3)" }}>/30</span></div>
+            <div style={{ fontSize: 28, fontWeight: 900, fontFamily: "'Space Mono'", color: "#ffeb3b" }}>{dayNum}<span style={{ fontSize: 13, color: "rgba(255,255,255,.3)" }}>/{TOTAL_DAYS}</span></div>
             <div onClick={() => supabase.auth.signOut()} style={{ fontSize: 9, color: "rgba(255,255,255,.3)", cursor: "pointer", marginTop: 2 }}>Déconnexion</div>
           </div>
         </div>
@@ -600,7 +593,7 @@ export default function App() {
 
       {/* STATS BAR */}
       <div style={{ display: "flex", gap: 6, padding: "0 16px 12px" }}>
-        {[{ label: "Score", value: `${dayScore}%`, color: dayScore >= 80 ? "#4caf50" : dayScore >= 50 ? "#ff9800" : "#e94560" }, { label: "Streak", value: `${streak}🔥`, color: "#ff9800" }, { label: "Cadeaux", value: `${unlockedCount}/${totalRewards}`, color: "#ffeb3b" }].map((s, i) => (
+        {[{ label: "Score", value: `${dayScore}%`, color: dayScore >= 80 ? "#4caf50" : dayScore >= 50 ? "#ff9800" : "#e94560" }, { label: "Streak", value: `${streak}🔥`, color: "#ff9800" }, { label: "Sèche", value: `J${dayNum}`, color: "#ffeb3b" }].map((s, i) => (
           <div key={i} style={{ flex: 1, background: "#0d0d24", border: "1px solid #1e1e4a", borderRadius: 14, padding: "8px 6px", textAlign: "center" }}>
             <div style={{ fontSize: 9, color: "#555" }}>{s.label}</div>
             <div style={{ fontSize: 18, fontWeight: 800, fontFamily: "'Space Mono'", color: s.color }}>{s.value}</div>
@@ -630,7 +623,6 @@ export default function App() {
         {tab === "food" && <TabFood data={data} save={save} dayData={dayData} selectedDate={selectedDate} toggleItem={toggleItem} />}
         {tab === "supps" && <TabSupps data={data} dayData={dayData} toggleItem={toggleItem} setShowSuppInfo={setShowSuppInfo} setReapproEdit={setReapproEdit} />}
         {tab === "health" && <TabHealth dayData={dayData} weekData={weekData} selectedDate={selectedDate} setSymptom={setSymptom} setNaturo={setNaturo} setTemp={setTemp} programNotStarted={programNotStarted} daysUntilProgram={daysUntilProgram} />}
-        {tab === "rewards" && <TabRewards data={data} markRewardSeen={markRewardSeen} unlockedCount={unlockedCount} totalRewards={totalRewards} />}
         {tab === "stats" && <TabStats data={data} selectedDate={selectedDate} programNotStarted={programNotStarted} daysUntilProgram={daysUntilProgram} />}
         {tab === "weight" && <TabWeight data={data} save={save} programNotStarted={programNotStarted} />}
         {tab === "epargne" && <TabEpargne data={data} save={save} />}

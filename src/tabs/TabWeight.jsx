@@ -2,8 +2,7 @@ import { useState } from "react";
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip } from "recharts";
 import WeightForm from "../components/WeightForm.jsx";
 import PhotoSlider, { PHOTO_CATEGORIES } from "../components/PhotoSlider.jsx";
-import { getCurrentNutritionStage, getWeekNumber, getToday, isMonday, getNextMonday, getWeekInStage, getStageType, getWeightAlert } from "../utils/helpers.js";
-import { STAGE_DAYS } from "../constants/nutrition.js";
+import { getCurrentNutritionStage, getWeekNumber, getToday, isMonday, getNextMonday, getWeekInStage, getWeightAlert } from "../utils/helpers.js";
 
 export default function TabWeight({ data, save, programNotStarted }) {
   const [weightEditMode, setWeightEditMode] = useState(false);
@@ -25,9 +24,7 @@ export default function TabWeight({ data, save, programNotStarted }) {
   const prevEntry = data.weight[`w${currentWeekNum - 1}`];
   const hasEntry = currentEntry?.poids;
   const stageInfo = getCurrentNutritionStage();
-  const stageType = getStageType(stageInfo.stage);
   const weekInStage = getWeekInStage(data);
-  const totalWeeksInStage = Math.ceil(STAGE_DAYS / 7);
   const alert = hasEntry ? getWeightAlert(data, currentWeekNum) : null;
   const todayIsMonday = isMonday(getToday());
   const nextMonday = getNextMonday(getToday());
@@ -84,13 +81,13 @@ export default function TabWeight({ data, save, programNotStarted }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
 
-      {/* SECTION A — Bandeau étape actuelle */}
-      <div className="card" style={{ background: `linear-gradient(145deg, ${stageInfo.stageInfo.color}15, ${stageInfo.stageInfo.color}08)`, borderColor: `${stageInfo.stageInfo.color}40` }}>
+      {/* SECTION A — Bandeau sèche */}
+      <div className="card" style={{ background: "linear-gradient(145deg, #e9456015, #e9456008)", borderColor: "#e9456040" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <span style={{ fontSize: 28 }}>{stageInfo.stageInfo.emoji}</span>
+          <span style={{ fontSize: 28 }}>🔴</span>
           <div>
-            <div style={{ fontSize: 14, fontWeight: 800, color: stageInfo.stageInfo.color }}>ÉTAPE {stageInfo.stage} — {stageInfo.stageInfo.name}</div>
-            <div style={{ fontSize: 11, color: "#888", marginTop: 2 }}>Semaine {weekInStage}/{totalWeeksInStage} de cette étape</div>
+            <div style={{ fontSize: 14, fontWeight: 800, color: "#e94560" }}>SÈCHE — Semaine {weekInStage}</div>
+            <div style={{ fontSize: 11, color: "#888", marginTop: 2 }}>23 Février → 23 Juin 2026</div>
           </div>
         </div>
       </div>
@@ -106,7 +103,7 @@ export default function TabWeight({ data, save, programNotStarted }) {
             {delta !== null && (
               <div style={{ textAlign: "right" }}>
                 <div style={{ fontSize: 11, color: "#888", marginBottom: 4 }}>vs semaine dernière</div>
-                <div style={{ fontSize: 22, fontWeight: 800, fontFamily: "'Space Mono'", color: delta > 0 ? (stageType === "regain" ? "#4caf50" : "#e94560") : (stageType === "seche" ? "#4caf50" : "#ff9800") }}>
+                <div style={{ fontSize: 22, fontWeight: 800, fontFamily: "'Space Mono'", color: delta > 0 ? "#e94560" : "#4caf50" }}>
                   {delta > 0 ? "+" : ""}{delta.toFixed(1)} kg {delta > 0 ? "↗️" : delta < 0 ? "↘️" : "→"}
                 </div>
               </div>

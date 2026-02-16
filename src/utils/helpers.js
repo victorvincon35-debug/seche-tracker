@@ -4,7 +4,7 @@ import { HOUR_HEIGHT } from "../constants/planning.js";
 
 export const STORAGE_KEY = "seche-tracker-v5";
 export const START_DATE = "2026-02-23";
-export const TOTAL_DAYS = 30;
+export const TOTAL_DAYS = 120;
 
 export function getToday() { return new Date().toISOString().split("T")[0]; }
 export function getDayNumber(d) { return Math.floor((new Date(d) - new Date(START_DATE)) / 86400000) + 1; }
@@ -210,8 +210,8 @@ export function getWeekInStage(data) {
   return Math.floor(diffDays / 7) + 1;
 }
 
-export function getStageType(stageNum) {
-  return (stageNum === 1 || stageNum === 3) ? "regain" : "seche";
+export function getStageType() {
+  return "seche";
 }
 
 export function getWeightAlert(data, currentWeekNum) {
@@ -227,62 +227,34 @@ export function getWeightAlert(data, currentWeekNum) {
   const delta = currentPoids - prevPoids;
   const delta2 = prev2Poids !== null ? currentPoids - prev2Poids : null;
   const prevDelta = prev2Poids !== null ? prevPoids - prev2Poids : null;
-  const stageNum = data.nutrition?.currentStage || 1;
-  const type = getStageType(stageNum);
   const weekInStage = getWeekInStage(data);
 
-  if (type === "regain") {
-    if (prevDelta !== null && prevDelta < 0 && delta < 0) {
-      return { type: "warning", text: "Tu perds du poids en regain ! Augmente tes calories de 100-200 kcal" };
-    }
-    if (delta > 1 && weekInStage >= 2) {
-      return { type: "warning", text: "Tu prends trop vite, réduis un peu les glucides" };
-    }
-    if (delta > 1 && weekInStage === 1) {
-      return { type: "ok", text: "Normal après une sèche (eau + glycogène)" };
-    }
-    if (delta >= 0.2 && delta <= 0.5) {
-      return { type: "ok", text: "Parfait, regain efficace" };
-    }
-    if (Math.abs(delta) < 0.2) {
-      return { type: "ok", text: "Bon maintien" };
-    }
-    if (delta > 0.5 && delta <= 1) {
-      return { type: "ok", text: "Regain en cours, surveille la progression" };
-    }
-    if (delta < 0) {
-      return { type: "warning", text: "Tu perds du poids en regain ! Augmente tes calories de 100-200 kcal" };
-    }
+  if (weekInStage <= 2 && delta <= -1.5 && delta >= -2.5) {
+    return { type: "ok", text: "Normal, c'est l'eau et le glycogène qui partent" };
   }
-
-  if (type === "seche") {
-    if (weekInStage <= 2 && delta <= -1.5 && delta >= -2.5) {
-      return { type: "ok", text: "Normal, c'est l'eau et le glycogène qui partent" };
-    }
-    if (weekInStage <= 2 && delta < -2.5) {
-      return { type: "ok", text: "Grosse perte initiale — eau et glycogène, c'est normal" };
-    }
-    if (weekInStage > 2 && delta < -2) {
-      return { type: "warning", text: "Trop rapide, tu risques de perdre du muscle" };
-    }
-    if (weekInStage >= 3 && prevDelta !== null && Math.abs(delta) < 0.3 && Math.abs(prevDelta) < 0.3) {
-      return { type: "warning", text: "Plateau ! Ajoute 200 kcal de déficit" };
-    }
-    if (weekInStage >= 3 && delta >= -1.2 && delta <= -0.7) {
-      return { type: "ok", text: "Parfait, sèche efficace" };
-    }
-    if (weekInStage <= 2 && delta < 0) {
-      return { type: "ok", text: "Début de sèche, le corps s'adapte" };
-    }
-    if (weekInStage >= 3 && delta < 0) {
-      return { type: "ok", text: "Sèche en cours, bonne progression" };
-    }
-    if (weekInStage <= 2 && Math.abs(delta) < 0.3) {
-      return { type: "ok", text: "Le corps s'adapte, la perte va commencer" };
-    }
-    if (delta > 0) {
-      return { type: "warning", text: "Prise de poids en sèche — vérifie ton déficit calorique" };
-    }
+  if (weekInStage <= 2 && delta < -2.5) {
+    return { type: "ok", text: "Grosse perte initiale — eau et glycogène, c'est normal" };
+  }
+  if (weekInStage > 2 && delta < -2) {
+    return { type: "warning", text: "Trop rapide, tu risques de perdre du muscle" };
+  }
+  if (weekInStage >= 3 && prevDelta !== null && Math.abs(delta) < 0.3 && Math.abs(prevDelta) < 0.3) {
+    return { type: "warning", text: "Plateau ! Ajoute 200 kcal de déficit" };
+  }
+  if (weekInStage >= 3 && delta >= -1.2 && delta <= -0.7) {
+    return { type: "ok", text: "Parfait, sèche efficace" };
+  }
+  if (weekInStage <= 2 && delta < 0) {
+    return { type: "ok", text: "Début de sèche, le corps s'adapte" };
+  }
+  if (weekInStage >= 3 && delta < 0) {
+    return { type: "ok", text: "Sèche en cours, bonne progression" };
+  }
+  if (weekInStage <= 2 && Math.abs(delta) < 0.3) {
+    return { type: "ok", text: "Le corps s'adapte, la perte va commencer" };
+  }
+  if (delta > 0) {
+    return { type: "warning", text: "Prise de poids en sèche — vérifie ton déficit calorique" };
   }
 
   return { type: "ok", text: `${delta > 0 ? "+" : ""}${delta.toFixed(1)} kg cette semaine` };

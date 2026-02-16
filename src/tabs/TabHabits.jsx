@@ -10,6 +10,12 @@ export default function TabHabits({ data, dayData, toggleItem, selectedDate, pro
     </div>
   );
 
+  const dailyHabits = HABITS.filter(h => !h.weekly);
+  const weeklyHabits = HABITS.filter(h => h.weekly);
+
+  const dailyDone = dailyHabits.filter(h => dayData.habits?.[h.id]).length;
+  const weeklyDone = weeklyHabits.filter(h => dayData.habits?.[h.id]).length;
+
   // Count social interactions this week
   const weekSocialCount = (() => {
     const monday = getMonday(selectedDate || getToday());
@@ -33,9 +39,16 @@ export default function TabHabits({ data, dayData, toggleItem, selectedDate, pro
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+
+      {/* DAILY HABITS */}
       <div className="card">
-        <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 10 }}>✅ Habitudes du jour</div>
-        {HABITS.map(h => {
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+          <div style={{ fontSize: 13, fontWeight: 700 }}>☀️ Habitudes quotidiennes</div>
+          <div style={{ fontSize: 11, fontFamily: "'Space Mono'", color: dailyDone === dailyHabits.length ? "#4caf50" : "#888" }}>
+            {dailyDone}/{dailyHabits.length}
+          </div>
+        </div>
+        {dailyHabits.map(h => {
           const done = dayData.habits?.[h.id] || false;
           return (
             <div key={h.id} className={`ci ${done ? "done" : ""}`} onClick={() => toggleItem("habits", h.id, h.xp)}>
@@ -46,7 +59,38 @@ export default function TabHabits({ data, dayData, toggleItem, selectedDate, pro
             </div>
           );
         })}
+        {dailyDone === dailyHabits.length && dailyHabits.length > 0 && (
+          <div style={{ marginTop: 8, padding: "8px 12px", borderRadius: 10, background: "rgba(76,175,80,.08)", border: "1px solid rgba(76,175,80,.2)", fontSize: 11, color: "#4caf50", textAlign: "center", fontWeight: 600 }}>
+            ✅ Toutes les habitudes du jour sont faites !
+          </div>
+        )}
       </div>
+
+      {/* WEEKLY HABITS */}
+      {weeklyHabits.length > 0 && (
+        <div className="card" style={{ borderLeft: "3px solid #ffeb3b" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+            <div style={{ fontSize: 13, fontWeight: 700 }}>📅 Habitudes hebdomadaires</div>
+            <div style={{ fontSize: 11, fontFamily: "'Space Mono'", color: weeklyDone === weeklyHabits.length ? "#4caf50" : "#888" }}>
+              {weeklyDone}/{weeklyHabits.length}
+            </div>
+          </div>
+          {weeklyHabits.map(h => {
+            const done = dayData.habits?.[h.id] || false;
+            return (
+              <div key={h.id} className={`ci ${done ? "done" : ""}`} onClick={() => toggleItem("habits", h.id, h.xp)}>
+                <div className="cb">{done ? "✓" : ""}</div>
+                <span style={{ fontSize: 18 }}>{h.emoji}</span>
+                <span style={{ flex: 1, fontSize: 13, fontWeight: done ? 600 : 400 }}>{h.label}</span>
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <span style={{ fontSize: 9, color: "#ffeb3b", background: "rgba(255,235,59,.1)", padding: "2px 6px", borderRadius: 6, fontWeight: 600 }}>1×/sem</span>
+                  <span className="xp">+{h.xp}</span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {/* SOCIAL SECTION */}
       <div className="card">
