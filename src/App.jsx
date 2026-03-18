@@ -22,8 +22,9 @@ import RestTimer from "./components/RestTimer.jsx";
 import EventModal from "./components/EventModal.jsx";
 import ChatWindow from "./components/ChatWindow.jsx";
 import VoiceCommand from "./components/VoiceCommand.jsx";
+import ModeSelector from "./components/ModeSelector.jsx";
 
-// Tabs
+// Tabs — Normal mode
 import TabDashboard from "./tabs/TabDashboard.jsx";
 import TabHabits from "./tabs/TabHabits.jsx";
 import TabSport from "./tabs/TabSport.jsx";
@@ -37,12 +38,22 @@ import TabPrepa from "./tabs/TabPrepa.jsx";
 import TabDos from "./tabs/TabDos.jsx";
 import TabEpargne from "./tabs/TabEpargne.jsx";
 import TabSport1 from "./tabs/TabSport1.jsx";
+import TabMusculLMV from "./tabs/TabMusculLMV.jsx";
+import TabYoutube from "./tabs/TabYoutube.jsx";
+
+// Tabs — 6 Weeks mode
+import Tab6wRoutine from "./tabs/Tab6wRoutine.jsx";
+import Tab6wTraining from "./tabs/Tab6wTraining.jsx";
+import Tab6wBusiness from "./tabs/Tab6wBusiness.jsx";
+import Tab6wObjectifs from "./tabs/Tab6wObjectifs.jsx";
 
 // ===== MAIN APP =====
 export default function App() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState("dashboard");
+  const [tab6w, setTab6w] = useState("routine");
+  const [appMode, setAppMode] = useState(() => localStorage.getItem("seche-app-mode") || null);
   const [selectedDate, setSelectedDate] = useState(getToday());
   const [showUnlock, setShowUnlock] = useState(null);
   const [showRewardPopup, setShowRewardPopup] = useState(null);
@@ -302,9 +313,25 @@ export default function App() {
   }
 
 
+  const handleSelectMode = useCallback((mode) => {
+    setAppMode(mode);
+    localStorage.setItem("seche-app-mode", mode);
+    if (mode === "6weeks") setTab6w("routine");
+    if (mode === "normal") setTab("dashboard");
+  }, []);
+
+  const switchToMode = useCallback((mode) => {
+    setAppMode(mode);
+    localStorage.setItem("seche-app-mode", mode);
+    if (mode === "6weeks") setTab6w("routine");
+    if (mode === "normal") setTab("dashboard");
+  }, []);
+
   if (authLoading || loading || !data) return (<div style={{ background: "#0a0a1a", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Outfit'" }}><div style={{ color: "#e94560", fontSize: 24 }}>✈️</div></div>);
 
   if (!session) return <LoginScreen />;
+
+  if (!appMode) return <ModeSelector onSelectMode={handleSelectMode} />;
 
   const programNotStarted = false;
   const daysUntilProgram = programNotStarted ? Math.ceil((new Date(START_DATE) - new Date(getToday())) / 86400000) : 0;
@@ -334,8 +361,106 @@ export default function App() {
     { id: "stats", label: "📊", name: "Stats" },
     { id: "weight", label: "⚖️", name: "Poids" },
     { id: "epargne", label: "💰", name: "Épargne" },
+    { id: "youtube", label: "🎬", name: "YouTube" },
   ];
 
+  const tabs6w = [
+    { id: "routine", label: "📋", name: "Ma Journee" },
+    { id: "training", label: "🏋️", name: "Training" },
+    { id: "business", label: "💼", name: "Business" },
+    { id: "objectifs", label: "🎯", name: "Objectifs" },
+  ];
+
+  // === 6 WEEKS MODE ===
+  if (appMode === "6weeks") {
+    return (
+      <div className="app-root" style={{ fontFamily: "'Outfit',sans-serif", background: "#0a0a1a", minHeight: "100vh", color: "white", maxWidth: 480, margin: "0 auto", paddingBottom: 80, position: "relative", WebkitOverflowScrolling: "touch" }}>
+        <style>{`
+          @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Space+Mono:wght@400;700&display=swap');
+          *{box-sizing:border-box;margin:0;padding:0}body{background:#0a0a1a}
+          ::-webkit-scrollbar{width:4px}::-webkit-scrollbar-thumb{background:#e94560;border-radius:2px}
+          @keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+          @keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+          @keyframes checkPop{0%{transform:scale(0)}60%{transform:scale(1.2)}100%{transform:scale(1)}}
+          @keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
+          .card{background:linear-gradient(145deg,#0d0d24,#151535);border:1px solid #1e1e4a;border-radius:20px;padding:20px;animation:slideUp .4s ease}
+          .ci{display:flex;align-items:center;gap:12px;padding:14px;border-radius:14px;cursor:pointer;transition:all .15s;border:1px solid transparent;user-select:none;-webkit-tap-highlight-color:transparent}
+          .ci:active{transform:scale(.98)}.ci.done{background:rgba(76,175,80,.08);border-color:rgba(76,175,80,.25)}
+          .cb{width:28px;height:28px;border-radius:8px;border:2px solid #3a3a5a;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .2s;font-size:14px;font-weight:700;color:white}
+          .ci.done .cb{background:linear-gradient(135deg,#4caf50,#2e7d32);border-color:#4caf50}
+          .tb{flex:1;min-width:52px;flex-shrink:0;padding:8px 2px;border:none;background:transparent;color:#555;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:9px;font-family:'Outfit';transition:all .2s;border-radius:12px;position:relative;-webkit-tap-highlight-color:transparent}
+          .tb.active{color:#e94560;background:rgba(233,69,96,.12)}
+          .na{width:40px;height:40px;border-radius:12px;border:1px solid #2a2a4a;background:#0d0d24;color:white;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:16px;transition:all .15s;-webkit-tap-highlight-color:transparent}
+          .na:active{transform:scale(.95);border-color:#e94560}
+          input[type=number],input[type=text]{background:#0d0d24;border:1px solid #2a2a4a;border-radius:10px;color:white;padding:10px 12px;font-family:'Space Mono';font-size:14px;width:80px;text-align:center;outline:none;-webkit-appearance:none}
+          input:focus,textarea:focus{border-color:#e94560!important}
+          textarea{-webkit-appearance:none;font-family:'Outfit',sans-serif}
+          @media(min-width:769px){
+            .app-root{max-width:1200px!important;padding-bottom:0!important;display:flex!important;flex-direction:row!important}
+            .main-col{flex:1!important;min-width:0!important;display:flex!important;flex-direction:column!important;overflow-y:auto!important;height:100vh!important}
+            .nav-outer{position:sticky!important;top:0!important;bottom:auto!important;left:auto!important;right:auto!important;width:220px!important;min-width:220px!important;height:100vh!important;background:#0a0a1a!important;padding:24px 12px!important;border-right:1px solid #1e1e4a!important;overflow-y:auto!important;order:-1!important;z-index:50!important}
+            .nav-inner{flex-direction:column!important;gap:4px!important;max-width:none!important;background:transparent!important;border:none!important;border-radius:0!important;padding:0!important}
+            .nav-inner .tb{flex-direction:row!important;justify-content:flex-start!important;padding:12px 14px!important;font-size:13px!important;gap:10px!important;border-radius:12px!important}
+            .nav-inner .tb span:first-child{font-size:18px!important}
+            .nav-inner .tb.active{background:rgba(233,69,96,.15)!important}
+          }
+        `}</style>
+
+        {/* REST TIMER */}
+        <RestTimer seconds={timerSeconds} running={timerRunning} preset={timerPreset}
+          onStop={() => setTimerRunning(false)} onDismiss={() => { setTimerSeconds(0); setTimerRunning(false); }} />
+
+        <div className="main-col">
+          {/* 6W HEADER */}
+          <div className="app-header" style={{ background: "linear-gradient(180deg,#e94560 0%,#0a0a1a 100%)", padding: "max(env(safe-area-inset-top), 16px) 16px 20px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+              <div>
+                <div style={{ fontSize: 10, fontFamily: "'Space Mono'", letterSpacing: 3, color: "rgba(255,255,255,.5)", textTransform: "uppercase" }}>Challenge</div>
+                <div style={{ fontSize: 18, fontWeight: 900 }}>🔥 6 SEMAINES</div>
+              </div>
+              <div style={{ textAlign: "right" }}>
+                <div onClick={() => switchToMode("normal")} style={{ fontSize: 9, color: "rgba(255,255,255,.4)", cursor: "pointer", padding: "4px 8px", border: "1px solid rgba(255,255,255,.15)", borderRadius: 8 }}>
+                  Mode Normal →
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* DATE NAV */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 16, padding: "10px 16px" }}>
+            <button className="na" onClick={() => navigateDay(-1)}>←</button>
+            <div style={{ textAlign: "center", minWidth: 120 }}>
+              <div style={{ fontSize: 15, fontWeight: 700 }}>{dateLabel}</div>
+              {selectedDate === getToday() && <div style={{ fontSize: 9, color: "#4caf50", fontWeight: 700, letterSpacing: 1 }}>AUJOURD'HUI</div>}
+            </div>
+            <button className="na" onClick={() => navigateDay(1)}>→</button>
+          </div>
+
+          {/* 6W CONTENT */}
+          <div className="content-area" style={{ padding: "0 16px" }}>
+            {tab6w === "routine" && <Tab6wRoutine data={data} save={save} selectedDate={selectedDate} />}
+            {tab6w === "training" && <Tab6wTraining data={data} save={save} selectedDate={selectedDate} timerPreset={timerPreset} setTimerPreset={setTimerPreset} setTimerSeconds={setTimerSeconds} setTimerRunning={setTimerRunning} />}
+            {tab6w === "business" && <Tab6wBusiness data={data} save={save} />}
+            {tab6w === "objectifs" && <Tab6wObjectifs data={data} save={save} selectedDate={selectedDate} />}
+          </div>
+        </div>
+
+        {/* 6W BOTTOM NAV */}
+        <div className="nav-outer" style={{ position: "fixed", bottom: 0, left: 0, right: 0, background: "linear-gradient(0deg,#0a0a1a 60%,transparent)", padding: "20px 4px max(env(safe-area-inset-bottom, 6px), 6px)", zIndex: 100 }}>
+          <div className="nav-inner" style={{ maxWidth: 480, margin: "0 auto", display: "flex", gap: 1, background: "#0a0a18", borderRadius: 14, padding: 3, border: "1px solid #1a1a3a" }}>
+            {tabs6w.map(t => (
+              <button key={t.id} className={`tb ${tab6w === t.id ? "active" : ""}`} onClick={() => setTab6w(t.id)}>
+                <span style={{ fontSize: 17 }}>{t.label}</span>
+                <span>{t.name}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // === NORMAL MODE ===
   return (
     <div className="app-root" style={{ fontFamily: "'Outfit',sans-serif", background: "#0a0a1a", minHeight: "100vh", color: "white", maxWidth: 480, margin: "0 auto", paddingBottom: 80, position: "relative", WebkitOverflowScrolling: "touch" }}>
       <style>{`
@@ -552,7 +677,10 @@ export default function App() {
           </div>
           <div style={{ textAlign: "right" }}>
             <div style={{ fontSize: 28, fontWeight: 900, fontFamily: "'Space Mono'", color: "#ffeb3b" }}>{dayNum}<span style={{ fontSize: 13, color: "rgba(255,255,255,.3)" }}>/{TOTAL_DAYS}</span></div>
-            <div onClick={() => supabase.auth.signOut()} style={{ fontSize: 9, color: "rgba(255,255,255,.3)", cursor: "pointer", marginTop: 2 }}>Déconnexion</div>
+            <div style={{ display: "flex", gap: 8, marginTop: 2 }}>
+              <div onClick={() => switchToMode("6weeks")} style={{ fontSize: 9, color: "#e94560", cursor: "pointer" }}>🔥 6 Sem.</div>
+              <div onClick={() => supabase.auth.signOut()} style={{ fontSize: 9, color: "rgba(255,255,255,.3)", cursor: "pointer" }}>Déco</div>
+            </div>
           </div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8, background: "rgba(0,0,0,.3)", borderRadius: 12, padding: "8px 12px" }}>
@@ -609,13 +737,16 @@ export default function App() {
         {tab === "sport" && (
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             <div style={{ display: "flex", gap: 4, background: "#0d0d24", borderRadius: 12, padding: 3, border: "1px solid #1e1e4a" }}>
-              <div onClick={() => setSportMode("naturo")} style={{ flex: 1, padding: "8px 0", borderRadius: 10, textAlign: "center", cursor: "pointer", fontSize: 12, fontWeight: 700, background: sportMode === "naturo" ? "rgba(233,69,96,.15)" : "transparent", color: sportMode === "naturo" ? "#e94560" : "#555" }}>🏊 Sport Naturo</div>
-              <div onClick={() => setSportMode("sport1")} style={{ flex: 1, padding: "8px 0", borderRadius: 10, textAlign: "center", cursor: "pointer", fontSize: 12, fontWeight: 700, background: sportMode === "sport1" ? "rgba(74,144,217,.15)" : "transparent", color: sportMode === "sport1" ? "#4a90d9" : "#555" }}>💪 Sport 1</div>
+              <div onClick={() => setSportMode("naturo")} style={{ flex: 1, padding: "8px 0", borderRadius: 10, textAlign: "center", cursor: "pointer", fontSize: 11, fontWeight: 700, background: sportMode === "naturo" ? "rgba(233,69,96,.15)" : "transparent", color: sportMode === "naturo" ? "#e94560" : "#555" }}>🏊 Naturo</div>
+              <div onClick={() => setSportMode("sport1")} style={{ flex: 1, padding: "8px 0", borderRadius: 10, textAlign: "center", cursor: "pointer", fontSize: 11, fontWeight: 700, background: sportMode === "sport1" ? "rgba(74,144,217,.15)" : "transparent", color: sportMode === "sport1" ? "#4a90d9" : "#555" }}>💪 Sport 1</div>
+              <div onClick={() => setSportMode("lmv")} style={{ flex: 1, padding: "8px 0", borderRadius: 10, textAlign: "center", cursor: "pointer", fontSize: 11, fontWeight: 700, background: sportMode === "lmv" ? "rgba(255,152,0,.15)" : "transparent", color: sportMode === "lmv" ? "#ff9800" : "#555" }}>🏋️ LMV</div>
             </div>
             {sportMode === "naturo" ? (
               <TabSport dayData={dayData} selectedDate={selectedDate} toggleSportSeries={toggleSportSeries} setSportReps={setSportReps} toggleSportBlock={toggleSportBlock} setSportNotes={setSportNotes} timerPreset={timerPreset} setTimerPreset={setTimerPreset} setTimerSeconds={setTimerSeconds} setTimerRunning={setTimerRunning} />
-            ) : (
+            ) : sportMode === "sport1" ? (
               <TabSport1 data={data} save={save} selectedDate={selectedDate} timerPreset={timerPreset} setTimerPreset={setTimerPreset} setTimerSeconds={setTimerSeconds} setTimerRunning={setTimerRunning} />
+            ) : (
+              <TabMusculLMV data={data} save={save} selectedDate={selectedDate} timerPreset={timerPreset} setTimerPreset={setTimerPreset} setTimerSeconds={setTimerSeconds} setTimerRunning={setTimerRunning} />
             )}
           </div>
         )}
@@ -627,6 +758,7 @@ export default function App() {
         {tab === "stats" && <TabStats data={data} selectedDate={selectedDate} programNotStarted={programNotStarted} daysUntilProgram={daysUntilProgram} />}
         {tab === "weight" && <TabWeight data={data} save={save} programNotStarted={programNotStarted} />}
         {tab === "epargne" && <TabEpargne data={data} save={save} />}
+        {tab === "youtube" && <TabYoutube />}
       </div>
 
       </div>{/* END MAIN CONTENT COLUMN */}
